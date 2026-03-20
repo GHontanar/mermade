@@ -327,8 +327,74 @@
       cursor: pointer; white-space: nowrap; transition: background 0.1s;
     }
     .ctx-btn:hover { background: var(--bg-tertiary); border-color: var(--accent); }
+    .ctx-btn.wizard-btn { background: var(--accent); color: #fff; border-color: var(--accent); font-weight: 600; }
+    .ctx-btn.wizard-btn:hover { background: var(--accent-hover); }
     .ctx-sep { width: 1px; height: 16px; background: var(--border-color); margin: 0 2px; }
     #ctx-label { font-size: 10px; color: var(--text-muted); margin-right: 4px; text-transform: uppercase; letter-spacing: 0.3px; }
+
+    /* === Wizard Dialog === */
+    #wizard-overlay {
+      display: none; position: fixed; inset: 0; z-index: 250;
+      background: rgba(0,0,0,0.4); align-items: center; justify-content: center;
+    }
+    #wizard-overlay.open { display: flex; }
+    #wizard-dialog {
+      background: var(--bg-primary); border-radius: 10px; padding: 20px;
+      min-width: 340px; max-width: 440px; width: 90%;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.25);
+    }
+    #wizard-dialog h4 { font-size: 15px; margin-bottom: 14px; }
+    .wizard-field { margin-bottom: 10px; }
+    .wizard-field label {
+      display: block; font-size: 12px; color: var(--text-secondary);
+      margin-bottom: 3px; font-weight: 500;
+    }
+    .wizard-field input, .wizard-field select {
+      width: 100%; padding: 6px 10px; font-size: 13px;
+      border: 1px solid var(--border-color); border-radius: 5px;
+      background: var(--bg-secondary); color: var(--text-primary);
+    }
+    .wizard-field input:focus, .wizard-field select:focus {
+      outline: none; border-color: var(--accent);
+    }
+    .wizard-shapes {
+      display: flex; gap: 6px; flex-wrap: wrap;
+    }
+    .wizard-shape {
+      width: 48px; height: 36px; border: 2px solid var(--border-color);
+      border-radius: 4px; cursor: pointer; display: flex;
+      align-items: center; justify-content: center; font-size: 18px;
+      background: var(--bg-secondary); transition: border-color 0.15s;
+    }
+    .wizard-shape:hover { border-color: var(--accent); }
+    .wizard-shape.selected { border-color: var(--accent); background: var(--accent); color: #fff; }
+    .wizard-arrows {
+      display: flex; gap: 6px;
+    }
+    .wizard-arrow {
+      flex: 1; padding: 6px; border: 2px solid var(--border-color);
+      border-radius: 4px; cursor: pointer; text-align: center;
+      font-family: monospace; font-size: 13px; background: var(--bg-secondary);
+      transition: border-color 0.15s;
+    }
+    .wizard-arrow:hover { border-color: var(--accent); }
+    .wizard-arrow.selected { border-color: var(--accent); background: var(--accent); color: #fff; }
+    .wizard-preview {
+      margin-top: 10px; padding: 8px; font-family: monospace; font-size: 12px;
+      background: var(--bg-tertiary); border-radius: 4px; color: var(--text-secondary);
+      white-space: pre;
+    }
+    .wizard-actions {
+      display: flex; gap: 8px; margin-top: 14px;
+    }
+    .wizard-actions button {
+      flex: 1; padding: 8px; font-size: 13px; border-radius: 5px;
+      cursor: pointer; border: 1px solid var(--border-color);
+      background: var(--bg-secondary); color: var(--text-primary);
+    }
+    .wizard-actions button.primary {
+      background: var(--accent); color: #fff; border-color: var(--accent); font-weight: 600;
+    }
 
     /* === Node Interaction === */
     #mermaid-output .node { cursor: pointer; }
@@ -662,6 +728,11 @@
       <span class="info" id="status-diagram-type"></span>
       <span class="info" id="status-render-time"></span>
     </div>
+  </div>
+
+  <!-- Wizard overlay -->
+  <div id="wizard-overlay">
+    <div id="wizard-dialog"></div>
   </div>
 
   <!-- Toast -->
@@ -1251,71 +1322,12 @@
     }
 
     // === Templates ===
-    // === Contextual Toolbar ===
-    const CONTEXT_SNIPPETS = {
-      flowchart: [
-        { label: 'Nodo', insert: '    X[Texto]' },
-        { label: 'Nodo redondo', insert: '    X(Texto)' },
-        { label: 'Decisión', insert: '    X{Pregunta?}' },
-        { label: 'Círculo', insert: '    X((Texto))' },
-        { label: '-->', insert: ' --> ' },
-        { label: '-.->',  insert: ' -.-> ' },
-        { label: '==>', insert: ' ==> ' },
-        { label: '-->|texto|', insert: ' -->|texto| ' },
-        { label: 'Subgraph', insert: '\n    subgraph Grupo\n        \n    end\n' },
-        { label: 'Style', insert: '\n    style X fill:#f9f,stroke:#333\n' },
-        { label: 'classDef', insert: '\n    classDef nombre fill:#f9f,stroke:#333\n' },
-      ],
-      sequence: [
-        { label: 'Participant', insert: '    participant X as Nombre\n' },
-        { label: 'Actor', insert: '    actor X as Nombre\n' },
-        { label: '->>', insert: '    A->>B: Mensaje\n' },
-        { label: '-->>',insert: '    A-->>B: Respuesta\n' },
-        { label: 'activate', insert: '    activate A\n' },
-        { label: 'deactivate', insert: '    deactivate A\n' },
-        { label: 'loop', insert: '    loop Cada vez\n        \n    end\n' },
-        { label: 'alt', insert: '    alt Caso A\n        \n    else Caso B\n        \n    end\n' },
-        { label: 'opt', insert: '    opt Opcional\n        \n    end\n' },
-        { label: 'Note', insert: '    Note over A: Texto\n' },
-      ],
-      class: [
-        { label: 'Clase', insert: '    class Nombre {\n        +String campo\n        +metodo() void\n    }\n' },
-        { label: 'Herencia', insert: '    Padre <|-- Hijo\n' },
-        { label: 'Composición', insert: '    A *-- B\n' },
-        { label: 'Agregación', insert: '    A o-- B\n' },
-        { label: 'Asociación', insert: '    A --> B\n' },
-        { label: 'Interfaz', insert: '    class INombre {\n        <<interface>>\n        +metodo() void\n    }\n' },
-      ],
-      er: [
-        { label: 'Entidad', insert: '    ENTIDAD {\n        int id PK\n        string nombre\n    }\n' },
-        { label: '||--o{', insert: '    A ||--o{ B : tiene\n' },
-        { label: '||--|{', insert: '    A ||--|{ B : contiene\n' },
-        { label: '}o--o{', insert: '    A }o--o{ B : relaciona\n' },
-      ],
-      gantt: [
-        { label: 'Tarea', insert: '        Tarea nombre :id1, 2024-01-01, 7d\n' },
-        { label: 'Después de', insert: '        Tarea nombre :id2, after id1, 5d\n' },
-        { label: 'Section', insert: '    section Nombre\n' },
-        { label: 'Milestone', insert: '        Hito :milestone, id3, 2024-01-15, 0d\n' },
-      ],
-      state: [
-        { label: 'Estado', insert: '    Estado\n' },
-        { label: 'Transición', insert: '    A --> B : evento\n' },
-        { label: '[*] inicio', insert: '    [*] --> Estado\n' },
-        { label: 'fin [*]', insert: '    Estado --> [*]\n' },
-        { label: 'state compuesto', insert: '    state Grupo {\n        A --> B\n    }\n' },
-        { label: 'fork', insert: '    state fork <<fork>>\n' },
-      ],
-    };
-
-    // Map first keyword to snippet group
+    // === Contextual Toolbar + Wizard ===
     const KEYWORD_TO_GROUP = {
       'graph': 'flowchart', 'flowchart': 'flowchart',
       'sequencediagram': 'sequence',
-      'classdiagram': 'class',
-      'erdiagram': 'er',
-      'gantt': 'gantt',
-      'statediagram': 'state', 'statediagram-v2': 'state',
+      'classdiagram': 'class', 'erdiagram': 'er',
+      'gantt': 'gantt', 'statediagram': 'state', 'statediagram-v2': 'state',
     };
 
     function detectDiagramType(code) {
@@ -1323,27 +1335,380 @@
       return KEYWORD_TO_GROUP[firstWord] || null;
     }
 
+    function textToId(text) {
+      return text.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-zA-Z0-9]/g, '_').replace(/_+/g, '_')
+        .replace(/^_|_$/g, '').substring(0, 20) || 'nodo';
+    }
+
+    // Parse existing nodes/participants from code
+    function parseFlowchartNodes(code) {
+      const nodes = [];
+      const re = /^\s*(\w+)[\[({]/gm;
+      let m;
+      while ((m = re.exec(code)) !== null) {
+        if (!['graph','flowchart','subgraph','style','classDef','click','class'].includes(m[1])) {
+          if (!nodes.includes(m[1])) nodes.push(m[1]);
+        }
+      }
+      // Also catch nodes only in arrows: A --> B
+      const arrowRe = /(\w+)\s*[-=.]+>[\|]?[^|]*[\|]?\s*(\w+)/g;
+      while ((m = arrowRe.exec(code)) !== null) {
+        [m[1], m[2]].forEach(n => {
+          if (!nodes.includes(n) && !['graph','flowchart','subgraph','style','classDef'].includes(n)) nodes.push(n);
+        });
+      }
+      return nodes;
+    }
+
+    function parseSequenceParticipants(code) {
+      const parts = [];
+      const re = /^\s*participant\s+(\w+)(?:\s+as\s+(.+))?$/gm;
+      let m;
+      while ((m = re.exec(code)) !== null) {
+        parts.push({ id: m[1], alias: m[2]?.trim() || m[1] });
+      }
+      const actorRe = /^\s*actor\s+(\w+)(?:\s+as\s+(.+))?$/gm;
+      while ((m = actorRe.exec(code)) !== null) {
+        parts.push({ id: m[1], alias: m[2]?.trim() || m[1] });
+      }
+      return parts;
+    }
+
+    function insertAtEnd(text) {
+      codeEditor.value = codeEditor.value.trimEnd() + '\n' + text;
+      codeEditor.scrollTop = codeEditor.scrollHeight;
+      scheduleRender();
+    }
+
+    // === Wizard System ===
+    const wizardOverlay = $('#wizard-overlay');
+    const wizardDialog = $('#wizard-dialog');
+
+    function openWizard(html, onSubmit) {
+      wizardDialog.innerHTML = html;
+      wizardOverlay.classList.add('open');
+
+      // Focus first input
+      const firstInput = wizardDialog.querySelector('input, select');
+      if (firstInput) setTimeout(() => firstInput.focus(), 50);
+
+      wizardDialog.querySelector('.wizard-cancel')?.addEventListener('click', closeWizard);
+      wizardDialog.querySelector('.wizard-submit')?.addEventListener('click', () => {
+        onSubmit();
+        closeWizard();
+      });
+      // Enter to submit
+      wizardDialog.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && e.target.tagName !== 'SELECT') {
+          e.preventDefault();
+          onSubmit();
+          closeWizard();
+        }
+      });
+
+      // Setup shape/arrow selectors
+      wizardDialog.querySelectorAll('.wizard-shape').forEach(s => {
+        s.addEventListener('click', () => {
+          wizardDialog.querySelectorAll('.wizard-shape').forEach(x => x.classList.remove('selected'));
+          s.classList.add('selected');
+          updateWizardPreview();
+        });
+      });
+      wizardDialog.querySelectorAll('.wizard-arrow').forEach(a => {
+        a.addEventListener('click', () => {
+          wizardDialog.querySelectorAll('.wizard-arrow').forEach(x => x.classList.remove('selected'));
+          a.classList.add('selected');
+          updateWizardPreview();
+        });
+      });
+      // Update preview on input
+      wizardDialog.querySelectorAll('input, select').forEach(el => {
+        el.addEventListener('input', updateWizardPreview);
+      });
+      updateWizardPreview();
+    }
+
+    function closeWizard() {
+      wizardOverlay.classList.remove('open');
+    }
+    wizardOverlay.addEventListener('click', (e) => { if (e.target === wizardOverlay) closeWizard(); });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && wizardOverlay.classList.contains('open')) { e.stopPropagation(); closeWizard(); } }, true);
+
+    function updateWizardPreview() {
+      const preview = wizardDialog.querySelector('.wizard-preview');
+      if (!preview) return;
+      const generator = preview.dataset.generator;
+      if (generator && wizardGenerators[generator]) {
+        preview.textContent = wizardGenerators[generator]();
+      }
+    }
+
+    const wizardGenerators = {};
+
+    // === Flowchart Wizards ===
+    function openAddNodeWizard() {
+      openWizard(`
+        <h4>Añadir nodo</h4>
+        <div class="wizard-field">
+          <label>Texto visible</label>
+          <input type="text" id="wiz-node-text" placeholder="Ej: Revisar pedido">
+        </div>
+        <div class="wizard-field">
+          <label>Forma</label>
+          <div class="wizard-shapes">
+            <div class="wizard-shape selected" data-shape="rect" title="Rectángulo">▭</div>
+            <div class="wizard-shape" data-shape="round" title="Redondeado">◎</div>
+            <div class="wizard-shape" data-shape="diamond" title="Decisión">◇</div>
+            <div class="wizard-shape" data-shape="circle" title="Círculo">○</div>
+            <div class="wizard-shape" data-shape="stadium" title="Estadio">⊂⊃</div>
+          </div>
+        </div>
+        <div class="wizard-preview" data-generator="addNode"></div>
+        <div class="wizard-actions">
+          <button class="wizard-cancel">Cancelar</button>
+          <button class="wizard-submit primary">Insertar</button>
+        </div>
+      `, () => {
+        const code = wizardGenerators.addNode();
+        if (code) insertAtEnd(code);
+      });
+    }
+
+    wizardGenerators.addNode = () => {
+      const text = wizardDialog.querySelector('#wiz-node-text')?.value?.trim();
+      if (!text) return '(escribe un texto)';
+      const id = textToId(text);
+      const shape = wizardDialog.querySelector('.wizard-shape.selected')?.dataset.shape || 'rect';
+      const wraps = { rect: ['[',']'], round: ['(',')'], diamond: ['{','}'], circle: ['((','))'], stadium: ['([','})'] };
+      const [open, close] = wraps[shape] || ['[',']'];
+      return `    ${id}${open}${text}${close}`;
+    };
+
+    function openConnectWizard() {
+      const nodes = parseFlowchartNodes(codeEditor.value);
+      const options = nodes.map(n => `<option value="${n}">${n}</option>`).join('');
+      const noNodes = nodes.length < 2 ? '<p style="color:var(--error-text);font-size:12px;margin-bottom:8px">Necesitas al menos 2 nodos. Añade nodos primero.</p>' : '';
+
+      openWizard(`
+        <h4>Conectar nodos</h4>
+        ${noNodes}
+        <div class="wizard-field">
+          <label>Desde</label>
+          <select id="wiz-from">${options}</select>
+        </div>
+        <div class="wizard-field">
+          <label>Hasta</label>
+          <select id="wiz-to">${nodes.length > 1 ? nodes.map((n,i) => `<option value="${n}" ${i===1?'selected':''}>${n}</option>`).join('') : options}</select>
+        </div>
+        <div class="wizard-field">
+          <label>Etiqueta (opcional)</label>
+          <input type="text" id="wiz-conn-label" placeholder="Ej: si válido">
+        </div>
+        <div class="wizard-field">
+          <label>Tipo de flecha</label>
+          <div class="wizard-arrows">
+            <div class="wizard-arrow selected" data-arrow="-->" title="Normal">——→</div>
+            <div class="wizard-arrow" data-arrow="-.->">···→</div>
+            <div class="wizard-arrow" data-arrow="==>" title="Gruesa">══→</div>
+          </div>
+        </div>
+        <div class="wizard-preview" data-generator="connect"></div>
+        <div class="wizard-actions">
+          <button class="wizard-cancel">Cancelar</button>
+          <button class="wizard-submit primary">Insertar</button>
+        </div>
+      `, () => {
+        const code = wizardGenerators.connect();
+        if (code && !code.startsWith('(')) insertAtEnd(code);
+      });
+    }
+
+    wizardGenerators.connect = () => {
+      const from = wizardDialog.querySelector('#wiz-from')?.value;
+      const to = wizardDialog.querySelector('#wiz-to')?.value;
+      if (!from || !to) return '(selecciona nodos)';
+      const label = wizardDialog.querySelector('#wiz-conn-label')?.value?.trim();
+      const arrow = wizardDialog.querySelector('.wizard-arrow.selected')?.dataset.arrow || '-->';
+      return label ? `    ${from} ${arrow}|${label}| ${to}` : `    ${from} ${arrow} ${to}`;
+    };
+
+    function openSubgraphWizard() {
+      openWizard(`
+        <h4>Crear grupo (subgraph)</h4>
+        <div class="wizard-field">
+          <label>Nombre del grupo</label>
+          <input type="text" id="wiz-subgraph-name" placeholder="Ej: Proceso de pago">
+        </div>
+        <div class="wizard-preview" data-generator="subgraph"></div>
+        <div class="wizard-actions">
+          <button class="wizard-cancel">Cancelar</button>
+          <button class="wizard-submit primary">Insertar</button>
+        </div>
+      `, () => {
+        const code = wizardGenerators.subgraph();
+        if (code && !code.startsWith('(')) insertAtEnd(code);
+      });
+    }
+
+    wizardGenerators.subgraph = () => {
+      const name = wizardDialog.querySelector('#wiz-subgraph-name')?.value?.trim();
+      if (!name) return '(escribe un nombre)';
+      return `    subgraph ${name}\n        \n    end`;
+    };
+
+    // === Sequence Wizards ===
+    function openAddParticipantWizard() {
+      openWizard(`
+        <h4>Añadir participante</h4>
+        <div class="wizard-field">
+          <label>Nombre</label>
+          <input type="text" id="wiz-part-name" placeholder="Ej: Servidor API">
+        </div>
+        <div class="wizard-field">
+          <label>Tipo</label>
+          <div class="wizard-shapes">
+            <div class="wizard-shape selected" data-shape="participant" title="Caja">▭</div>
+            <div class="wizard-shape" data-shape="actor" title="Persona">♟</div>
+          </div>
+        </div>
+        <div class="wizard-preview" data-generator="addParticipant"></div>
+        <div class="wizard-actions">
+          <button class="wizard-cancel">Cancelar</button>
+          <button class="wizard-submit primary">Insertar</button>
+        </div>
+      `, () => {
+        const code = wizardGenerators.addParticipant();
+        if (code && !code.startsWith('(')) insertAtEnd(code);
+      });
+    }
+
+    wizardGenerators.addParticipant = () => {
+      const name = wizardDialog.querySelector('#wiz-part-name')?.value?.trim();
+      if (!name) return '(escribe un nombre)';
+      const type = wizardDialog.querySelector('.wizard-shape.selected')?.dataset.shape || 'participant';
+      const id = textToId(name);
+      return `    ${type} ${id} as ${name}`;
+    };
+
+    function openMessageWizard() {
+      const parts = parseSequenceParticipants(codeEditor.value);
+      const options = parts.map(p => `<option value="${p.id}">${p.alias}</option>`).join('');
+      const noParts = parts.length < 2 ? '<p style="color:var(--error-text);font-size:12px;margin-bottom:8px">Necesitas al menos 2 participantes. Añádelos primero.</p>' : '';
+
+      openWizard(`
+        <h4>Enviar mensaje</h4>
+        ${noParts}
+        <div class="wizard-field">
+          <label>De</label>
+          <select id="wiz-msg-from">${options}</select>
+        </div>
+        <div class="wizard-field">
+          <label>A</label>
+          <select id="wiz-msg-to">${parts.length > 1 ? parts.map((p,i) => `<option value="${p.id}" ${i===1?'selected':''}>${p.alias}</option>`).join('') : options}</select>
+        </div>
+        <div class="wizard-field">
+          <label>Mensaje</label>
+          <input type="text" id="wiz-msg-text" placeholder="Ej: Solicitar datos">
+        </div>
+        <div class="wizard-field">
+          <label>Tipo</label>
+          <div class="wizard-arrows">
+            <div class="wizard-arrow selected" data-arrow="->>" title="Síncrono">——→</div>
+            <div class="wizard-arrow" data-arrow="-->>" title="Respuesta">--→</div>
+            <div class="wizard-arrow" data-arrow="-)" title="Asíncrono">~~→</div>
+          </div>
+        </div>
+        <div class="wizard-preview" data-generator="message"></div>
+        <div class="wizard-actions">
+          <button class="wizard-cancel">Cancelar</button>
+          <button class="wizard-submit primary">Insertar</button>
+        </div>
+      `, () => {
+        const code = wizardGenerators.message();
+        if (code && !code.startsWith('(')) insertAtEnd(code);
+      });
+    }
+
+    wizardGenerators.message = () => {
+      const from = wizardDialog.querySelector('#wiz-msg-from')?.value;
+      const to = wizardDialog.querySelector('#wiz-msg-to')?.value;
+      const text = wizardDialog.querySelector('#wiz-msg-text')?.value?.trim();
+      if (!from || !to) return '(selecciona participantes)';
+      const arrow = wizardDialog.querySelector('.wizard-arrow.selected')?.dataset.arrow || '->>';
+      return `    ${from}${arrow}${to}: ${text || 'Mensaje'}`;
+    };
+
+    function openBlockWizard() {
+      openWizard(`
+        <h4>Insertar bloque</h4>
+        <div class="wizard-field">
+          <label>Tipo de bloque</label>
+          <select id="wiz-block-type">
+            <option value="loop">Loop (repetición)</option>
+            <option value="alt">Alt (si/sino)</option>
+            <option value="opt">Opt (opcional)</option>
+            <option value="par">Par (paralelo)</option>
+            <option value="critical">Critical (sección crítica)</option>
+          </select>
+        </div>
+        <div class="wizard-field">
+          <label>Condición / Descripción</label>
+          <input type="text" id="wiz-block-label" placeholder="Ej: Mientras haya datos">
+        </div>
+        <div class="wizard-preview" data-generator="block"></div>
+        <div class="wizard-actions">
+          <button class="wizard-cancel">Cancelar</button>
+          <button class="wizard-submit primary">Insertar</button>
+        </div>
+      `, () => {
+        const code = wizardGenerators.block();
+        if (code && !code.startsWith('(')) insertAtEnd(code);
+      });
+    }
+
+    wizardGenerators.block = () => {
+      const type = wizardDialog.querySelector('#wiz-block-type')?.value || 'loop';
+      const label = wizardDialog.querySelector('#wiz-block-label')?.value?.trim() || 'Condicion';
+      if (type === 'alt') return `    alt ${label}\n        \n    else Otro caso\n        \n    end`;
+      return `    ${type} ${label}\n        \n    end`;
+    };
+
+    // === Toolbar Update ===
     function updateContextToolbar() {
       const toolbar = $('#context-toolbar');
-      // Remove old buttons
       toolbar.querySelectorAll('.ctx-btn, .ctx-sep').forEach(el => el.remove());
 
       const type = detectDiagramType(codeEditor.value);
-      const snippets = type ? CONTEXT_SNIPPETS[type] : null;
       const label = $('#ctx-label');
 
-      if (!snippets) {
-        label.textContent = 'Insertar (escribe un tipo de diagrama primero)';
+      if (!type) {
+        label.textContent = 'Selecciona una plantilla para empezar';
         return;
       }
 
       label.textContent = type.toUpperCase();
-      snippets.forEach((s, i) => {
+
+      const buttons = [];
+      if (type === 'flowchart') {
+        buttons.push(
+          { label: '+ Nodo', wizard: true, fn: openAddNodeWizard },
+          { label: '+ Conectar', wizard: true, fn: openConnectWizard },
+          { label: '+ Grupo', wizard: true, fn: openSubgraphWizard },
+        );
+      } else if (type === 'sequence') {
+        buttons.push(
+          { label: '+ Participante', wizard: true, fn: openAddParticipantWizard },
+          { label: '+ Mensaje', wizard: true, fn: openMessageWizard },
+          { label: '+ Bloque', wizard: true, fn: openBlockWizard },
+        );
+      }
+
+      buttons.forEach(b => {
         const btn = document.createElement('button');
-        btn.className = 'ctx-btn';
-        btn.textContent = s.label;
-        btn.title = s.insert.trim();
-        btn.addEventListener('click', () => insertSnippet(s.insert));
+        btn.className = b.wizard ? 'ctx-btn wizard-btn' : 'ctx-btn';
+        btn.textContent = b.label;
+        btn.addEventListener('click', b.fn);
         toolbar.appendChild(btn);
       });
     }
