@@ -247,6 +247,74 @@
     }
     #config-apply:hover { background: var(--accent-hover); }
 
+    /* === Theme Builder Panel === */
+    #theme-panel {
+      display: none; position: absolute; top: 0; right: 0; width: 320px; height: 100%;
+      background: var(--bg-secondary); border-left: 1px solid var(--border-color);
+      box-shadow: -2px 0 8px rgba(0,0,0,0.1); z-index: 11; flex-direction: column;
+    }
+    #theme-panel.open { display: flex; }
+    #theme-panel .panel-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 8px 12px; border-bottom: 1px solid var(--border-color);
+      font-weight: 600; font-size: 13px;
+    }
+    #theme-panel .panel-header button {
+      background: none; border: none; color: var(--text-secondary);
+      cursor: pointer; font-size: 18px; line-height: 1; padding: 2px 6px;
+    }
+    #theme-panel .panel-body { flex: 1; overflow-y: auto; padding: 12px; }
+    #theme-panel .theme-section { margin-bottom: 12px; }
+    #theme-panel .theme-section h5 {
+      font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;
+      color: var(--text-muted); margin-bottom: 6px;
+    }
+    .theme-color-row {
+      display: flex; align-items: center; gap: 8px; margin-bottom: 5px;
+    }
+    .theme-color-row label {
+      font-size: 12px; color: var(--text-secondary); flex: 1; min-width: 0;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .theme-color-row input[type="color"] {
+      width: 28px; height: 22px; border: 1px solid var(--border-color);
+      border-radius: 3px; padding: 1px; cursor: pointer; background: none; flex-shrink: 0;
+    }
+    .theme-color-row .color-val {
+      font-size: 10px; font-family: monospace; color: var(--text-muted);
+      width: 55px; flex-shrink: 0; text-align: right;
+    }
+    #theme-panel .theme-actions {
+      padding: 8px 12px; border-top: 1px solid var(--border-color);
+      display: flex; gap: 6px; flex-shrink: 0;
+    }
+    #theme-panel .theme-actions button {
+      flex: 1; padding: 6px 8px; font-size: 12px; border-radius: 4px;
+      cursor: pointer; border: 1px solid var(--border-color);
+      background: var(--bg-primary); color: var(--text-primary);
+    }
+    #theme-panel .theme-actions button.primary {
+      background: var(--accent); color: #fff; border-color: var(--accent);
+    }
+
+    /* === Node Presets === */
+    .node-presets {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 8px;
+    }
+    .node-preset {
+      height: 28px; border-radius: 4px; cursor: pointer;
+      border: 2px solid transparent; transition: border-color 0.15s;
+    }
+    .node-preset:hover { border-color: var(--accent); }
+
+    /* === CSS Injection === */
+    #theme-css-editor {
+      width: 100%; min-height: 80px; padding: 6px;
+      font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+      font-size: 11px; border: 1px solid var(--border-color); border-radius: 4px;
+      background: var(--bg-primary); color: var(--text-primary); resize: vertical; tab-size: 2;
+    }
+
     /* === Node Interaction === */
     #mermaid-output .node { cursor: pointer; }
     #mermaid-output .node:hover rect,
@@ -440,6 +508,7 @@
 
       <button id="btn-share" title="Copiar enlace compartible">Compartir</button>
       <button id="btn-config" title="Configuracion Mermaid">Config</button>
+      <button id="btn-theme-builder" title="Theme Builder visual">Tema</button>
       <button id="btn-present" title="Modo presentación (F5)">Presentar</button>
 
       <span class="spacer"></span>
@@ -521,6 +590,49 @@
 }</textarea>
           <button id="config-apply">Aplicar</button>
           <p class="hint">JSON con opciones de Mermaid. Ver: mermaid.js.org/config/schema-docs/config.html</p>
+        </div>
+      </div>
+
+      <!-- Theme Builder panel -->
+      <div id="theme-panel">
+        <div class="panel-header">
+          <span>Theme Builder</span>
+          <button id="theme-close">&times;</button>
+        </div>
+        <div class="panel-body">
+          <div class="theme-section">
+            <h5>Colores principales</h5>
+            <div class="theme-color-row"><label>Primary</label><input type="color" data-var="primaryColor" value="#326ce5"><span class="color-val">#326ce5</span></div>
+            <div class="theme-color-row"><label>Secondary</label><input type="color" data-var="secondaryColor" value="#ff8500"><span class="color-val">#ff8500</span></div>
+            <div class="theme-color-row"><label>Tertiary</label><input type="color" data-var="tertiaryColor" value="#7B68EE"><span class="color-val">#7B68EE</span></div>
+          </div>
+          <div class="theme-section">
+            <h5>Fondo y bordes</h5>
+            <div class="theme-color-row"><label>Fondo principal</label><input type="color" data-var="mainBkg" value="#ECECFF"><span class="color-val">#ECECFF</span></div>
+            <div class="theme-color-row"><label>Borde nodos</label><input type="color" data-var="nodeBorder" value="#9370DB"><span class="color-val">#9370DB</span></div>
+            <div class="theme-color-row"><label>Fondo cluster</label><input type="color" data-var="clusterBkg" value="#ffffde"><span class="color-val">#ffffde</span></div>
+            <div class="theme-color-row"><label>Borde cluster</label><input type="color" data-var="clusterBorder" value="#aaaa33"><span class="color-val">#aaaa33</span></div>
+          </div>
+          <div class="theme-section">
+            <h5>Texto y lineas</h5>
+            <div class="theme-color-row"><label>Texto principal</label><input type="color" data-var="primaryTextColor" value="#131313"><span class="color-val">#131313</span></div>
+            <div class="theme-color-row"><label>Color lineas</label><input type="color" data-var="lineColor" value="#333333"><span class="color-val">#333333</span></div>
+          </div>
+          <div class="theme-section">
+            <h5>Presets de nodo</h5>
+            <p class="hint" style="margin-top:0;margin-bottom:6px">Click para insertar classDef + aplicar al nodo seleccionado</p>
+            <div class="node-presets" id="node-presets"></div>
+          </div>
+          <div class="theme-section">
+            <h5>CSS personalizado</h5>
+            <textarea id="theme-css-editor" spellcheck="false" placeholder=".node rect { rx: 10; ry: 10; }&#10;.edgePath path { stroke-width: 2; }"></textarea>
+            <p class="hint">CSS inyectado via themeCSS en la config de Mermaid</p>
+          </div>
+        </div>
+        <div class="theme-actions">
+          <button id="theme-export">Exportar JSON</button>
+          <button id="theme-import">Importar JSON</button>
+          <button id="theme-apply-btn" class="primary">Aplicar</button>
         </div>
       </div>
     </div>
@@ -1120,6 +1232,117 @@
     }
 
     // === Templates ===
+    // === Theme Builder ===
+    const themePanel = $('#theme-panel');
+    const NODE_PRESETS = [
+      { name: 'Azul', fill: '#d4e6f1', stroke: '#2980b9', color: '#1a1a1a' },
+      { name: 'Verde', fill: '#d5f5e3', stroke: '#27ae60', color: '#1a1a1a' },
+      { name: 'Rojo', fill: '#fadbd8', stroke: '#e74c3c', color: '#1a1a1a' },
+      { name: 'Naranja', fill: '#fdebd0', stroke: '#e67e22', color: '#1a1a1a' },
+      { name: 'Morado', fill: '#e8daef', stroke: '#8e44ad', color: '#1a1a1a' },
+      { name: 'Gris', fill: '#eaecee', stroke: '#7f8c8d', color: '#1a1a1a' },
+      { name: 'Oscuro', fill: '#2c3e50', stroke: '#1a252f', color: '#ffffff' },
+      { name: 'Amarillo', fill: '#fef9e7', stroke: '#f1c40f', color: '#1a1a1a' },
+    ];
+
+    function setupThemeBuilder() {
+      // Setup color picker syncing
+      themePanel.querySelectorAll('input[type="color"][data-var]').forEach(input => {
+        input.addEventListener('input', () => {
+          input.nextElementSibling.textContent = input.value;
+        });
+      });
+
+      // Setup node presets
+      const presetsGrid = $('#node-presets');
+      NODE_PRESETS.forEach(preset => {
+        const el = document.createElement('div');
+        el.className = 'node-preset';
+        el.title = preset.name;
+        el.style.background = `linear-gradient(135deg, ${preset.fill} 60%, ${preset.stroke} 100%)`;
+        el.addEventListener('click', () => applyNodePreset(preset));
+        presetsGrid.appendChild(el);
+      });
+    }
+
+    function applyNodePreset(preset) {
+      if (selectedNodeId) {
+        // Apply to selected node
+        const styleLine = `    style ${selectedNodeId} fill:${preset.fill},stroke:${preset.stroke},color:${preset.color}`;
+        let code = codeEditor.value;
+        const regex = new RegExp(`^\\s*style\\s+${selectedNodeId}\\s+.*$`, 'gm');
+        code = code.replace(regex, '').replace(/\n{2,}/g, '\n');
+        code = code.trimEnd() + '\n' + styleLine;
+        codeEditor.value = code;
+        scheduleRender();
+        showToast(`Preset "${preset.name}" aplicado a ${selectedNodeId}`);
+      } else {
+        showToast('Selecciona un nodo primero (click en el diagrama)');
+      }
+    }
+
+    function getThemeVarsFromPanel() {
+      const vars = {};
+      themePanel.querySelectorAll('input[type="color"][data-var]').forEach(input => {
+        vars[input.dataset.var] = input.value;
+      });
+      return vars;
+    }
+
+    function setThemeVarsInPanel(vars) {
+      themePanel.querySelectorAll('input[type="color"][data-var]').forEach(input => {
+        const key = input.dataset.var;
+        if (vars[key]) {
+          input.value = vars[key];
+          input.nextElementSibling.textContent = vars[key];
+        }
+      });
+    }
+
+    function applyThemeBuilder() {
+      const themeVars = getThemeVarsFromPanel();
+      const themeCSS = $('#theme-css-editor').value.trim();
+
+      // Update config editor with theme vars
+      let userConfig = {};
+      try { userConfig = JSON.parse(configEditor.value); } catch {}
+      userConfig.theme = 'base'; // must use 'base' for custom themeVariables
+      userConfig.themeVariables = { ...themeVars, fontSize: fontSizeInput.value + 'px' };
+      if (themeCSS) userConfig.themeCSS = themeCSS;
+      configEditor.value = JSON.stringify(userConfig, null, 2);
+
+      scheduleRender();
+      showToast('Tema aplicado');
+    }
+
+    function exportTheme() {
+      const data = {
+        themeVariables: getThemeVarsFromPanel(),
+        themeCSS: $('#theme-css-editor').value.trim(),
+      };
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      downloadBlob(blob, 'mermaid-theme.json');
+      showToast('Tema exportado');
+    }
+
+    function importTheme() {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.json';
+      input.onchange = async () => {
+        const file = input.files[0];
+        if (!file) return;
+        try {
+          const text = await file.text();
+          const data = JSON.parse(text);
+          if (data.themeVariables) setThemeVarsInPanel(data.themeVariables);
+          if (data.themeCSS) $('#theme-css-editor').value = data.themeCSS;
+          showToast(`Tema importado: ${file.name}`);
+        } catch { showToast('Error al importar tema'); }
+      };
+      input.click();
+    }
+
     function setupTemplates() {
       const grid = $('#template-grid');
       TEMPLATES.forEach((t) => {
@@ -1581,6 +1804,7 @@
       configPanel.classList.remove('open');
       shortcutsOverlay.classList.remove('open');
       templatesPanel.classList.remove('open');
+      themePanel.classList.remove('open');
       closeStylePanel();
       selectNode(null);
       exitPresentation();
@@ -1725,6 +1949,13 @@
     // Style panel
     $('#style-apply').addEventListener('click', applyNodeStyle);
     $('#style-cancel').addEventListener('click', closeStylePanel);
+
+    // Theme builder
+    $('#btn-theme-builder').addEventListener('click', () => themePanel.classList.toggle('open'));
+    $('#theme-close').addEventListener('click', () => themePanel.classList.remove('open'));
+    $('#theme-apply-btn').addEventListener('click', applyThemeBuilder);
+    $('#theme-export').addEventListener('click', exportTheme);
+    $('#theme-import').addEventListener('click', importTheme);
     // Sync color picker hex display
     ['fill', 'stroke', 'color'].forEach(prop => {
       $(`#style-${prop}`).addEventListener('input', (e) => {
@@ -1809,6 +2040,7 @@
       setupResize();
       setupPanZoom();
       setupTemplates();
+      setupThemeBuilder();
       setupMobileTabs();
     }
 
