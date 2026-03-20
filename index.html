@@ -247,6 +247,67 @@
     }
     #config-apply:hover { background: var(--accent-hover); }
 
+    /* === Node Interaction === */
+    #mermaid-output .node { cursor: pointer; }
+    #mermaid-output .node:hover rect,
+    #mermaid-output .node:hover polygon,
+    #mermaid-output .node:hover circle,
+    #mermaid-output .node:hover path {
+      filter: brightness(0.92);
+    }
+    #mermaid-output .node.selected rect,
+    #mermaid-output .node.selected polygon,
+    #mermaid-output .node.selected circle,
+    #mermaid-output .node.selected path {
+      stroke: var(--accent) !important;
+      stroke-width: 3px !important;
+      stroke-dasharray: 5,3;
+    }
+
+    /* === Style Panel === */
+    #style-panel {
+      display: none; position: absolute; z-index: 15;
+      background: var(--bg-secondary); border: 1px solid var(--border-color);
+      border-radius: 8px; padding: 12px; min-width: 200px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+    #style-panel.open { display: block; }
+    #style-panel h4 { font-size: 13px; margin-bottom: 8px; font-weight: 600; }
+    #style-panel .style-row {
+      display: flex; align-items: center; gap: 8px; margin-bottom: 6px;
+    }
+    #style-panel .style-row label {
+      font-size: 12px; color: var(--text-secondary); min-width: 50px;
+    }
+    #style-panel .style-row input[type="color"] {
+      width: 32px; height: 24px; border: 1px solid var(--border-color);
+      border-radius: 4px; padding: 1px; cursor: pointer; background: none;
+    }
+    #style-panel .style-row .color-hex {
+      font-size: 11px; font-family: monospace; color: var(--text-muted); width: 60px;
+    }
+    #style-panel .style-actions {
+      display: flex; gap: 6px; margin-top: 8px; padding-top: 8px;
+      border-top: 1px solid var(--border-color);
+    }
+    #style-panel .style-actions button {
+      flex: 1; padding: 4px 8px; font-size: 11px; border-radius: 4px;
+      cursor: pointer; border: 1px solid var(--border-color);
+      background: var(--bg-primary); color: var(--text-primary);
+    }
+    #style-panel .style-actions button.primary {
+      background: var(--accent); color: #fff; border-color: var(--accent);
+    }
+
+    /* === Inline Edit === */
+    #inline-edit {
+      display: none; position: absolute; z-index: 15;
+      padding: 4px 8px; font-size: 14px; border: 2px solid var(--accent);
+      border-radius: 4px; background: var(--bg-primary); color: var(--text-primary);
+      font-family: inherit; outline: none; min-width: 80px;
+    }
+    #inline-edit.open { display: block; }
+
     /* === Toast === */
     #toast {
       position: fixed; bottom: 40px; left: 50%;
@@ -417,6 +478,33 @@
         <div id="preview-viewport">
           <div id="mermaid-output"></div>
         </div>
+
+        <!-- Style panel (floating, positioned near selected node) -->
+        <div id="style-panel">
+          <h4 id="style-panel-title">Estilo del nodo</h4>
+          <div class="style-row">
+            <label>Fondo</label>
+            <input type="color" id="style-fill" value="#d4e6f1">
+            <span class="color-hex" id="style-fill-hex">#d4e6f1</span>
+          </div>
+          <div class="style-row">
+            <label>Borde</label>
+            <input type="color" id="style-stroke" value="#2c3e50">
+            <span class="color-hex" id="style-stroke-hex">#2c3e50</span>
+          </div>
+          <div class="style-row">
+            <label>Texto</label>
+            <input type="color" id="style-color" value="#000000">
+            <span class="color-hex" id="style-color-hex">#000000</span>
+          </div>
+          <div class="style-actions">
+            <button id="style-cancel">Cancelar</button>
+            <button id="style-apply" class="primary">Aplicar</button>
+          </div>
+        </div>
+
+        <!-- Inline text edit input -->
+        <input id="inline-edit" type="text" spellcheck="false">
       </div>
 
       <!-- Config panel -->
@@ -1120,6 +1208,7 @@
 
         currentSvg = svg;
         previewOutput.innerHTML = svg;
+        setupNodeInteraction();
 
         statusMessage.className = 'success';
         statusMessage.textContent = 'Renderizado correctamente';
@@ -1132,6 +1221,221 @@
         statusMessage.textContent = err.message || 'Error al renderizar';
         statusRenderTime.textContent = '';
       }
+    }
+
+    // === Node Interaction ===
+    let selectedNodeId = null;
+    const stylePanel = $('#style-panel');
+    const inlineEdit = $('#inline-edit');
+
+    function extractNodeId(svgNode) {
+      // Mermaid gives nodes IDs like "flowchart-A-0" or data-id attributes
+      const g = svgNode.closest('.node');
+      if (!g) return null;
+      const id = g.id || '';
+      // Try patterns: "flowchart-NODEID-NUM", "NODEID"
+      const match = id.match(/flowchart-(.+?)-\d+$/) || id.match(/^(.+?)(?:-\d+)?$/);
+      return match ? match[1] : null;
+    }
+
+    function findNodeInCode(nodeId) {
+      const code = codeEditor.value;
+      const lines = code.split('\n');
+      // Search for node definition: A[text], A(text), A{text}, A((text)), etc.
+      const escaped = nodeId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const patterns = [
+        new RegExp(`^\\s*${escaped}[\\[\\({]`, 'm'),  // A[text] or A(text) or A{text}
+        new RegExp(`^\\s*${escaped}\\s*-->`, 'm'),      // A --> B
+        new RegExp(`-->\\s*${escaped}`, 'm'),            // ... --> A
+        new RegExp(`\\b${escaped}\\b`, 'm'),             // any mention
+      ];
+
+      for (const pattern of patterns) {
+        for (let i = 0; i < lines.length; i++) {
+          if (pattern.test(lines[i])) return i;
+        }
+      }
+      return -1;
+    }
+
+    function highlightLineInEditor(lineIdx) {
+      if (lineIdx < 0) return;
+      const lines = codeEditor.value.split('\n');
+      let start = 0;
+      for (let i = 0; i < lineIdx; i++) start += lines[i].length + 1;
+      const end = start + lines[lineIdx].length;
+      codeEditor.focus();
+      codeEditor.setSelectionRange(start, end);
+      // Scroll textarea to show selected line
+      const lineHeight = parseInt(getComputedStyle(codeEditor).lineHeight);
+      codeEditor.scrollTop = Math.max(0, lineIdx * lineHeight - codeEditor.clientHeight / 2);
+    }
+
+    function selectNode(nodeEl) {
+      // Deselect previous
+      previewOutput.querySelectorAll('.node.selected').forEach(n => n.classList.remove('selected'));
+      closeStylePanel();
+
+      if (!nodeEl) { selectedNodeId = null; return; }
+
+      const g = nodeEl.closest('.node');
+      if (!g) return;
+
+      g.classList.add('selected');
+      selectedNodeId = extractNodeId(nodeEl);
+
+      // Highlight in editor
+      if (selectedNodeId) {
+        const lineIdx = findNodeInCode(selectedNodeId);
+        highlightLineInEditor(lineIdx);
+      }
+    }
+
+    function showStylePanel(nodeEl) {
+      if (!selectedNodeId) return;
+      const g = nodeEl.closest('.node');
+      if (!g) return;
+
+      // Read current colors from the node
+      const shape = g.querySelector('rect, polygon, circle, path');
+      if (shape) {
+        const fill = shape.getAttribute('fill') || '#d4e6f1';
+        const stroke = shape.getAttribute('stroke') || '#2c3e50';
+        $('#style-fill').value = toHex(fill);
+        $('#style-fill-hex').textContent = toHex(fill);
+        $('#style-stroke').value = toHex(stroke);
+        $('#style-stroke-hex').textContent = toHex(stroke);
+      }
+      const textEl = g.querySelector('.nodeLabel, text');
+      if (textEl) {
+        const color = getComputedStyle(textEl).color || '#000000';
+        $('#style-color').value = rgbToHex(color);
+        $('#style-color-hex').textContent = rgbToHex(color);
+      }
+
+      $('#style-panel-title').textContent = `Nodo: ${selectedNodeId}`;
+
+      // Position near the node
+      const rect = g.getBoundingClientRect();
+      const paneRect = $('#preview-pane').getBoundingClientRect();
+      stylePanel.style.top = Math.max(0, rect.bottom - paneRect.top + 8) + 'px';
+      stylePanel.style.left = Math.max(0, rect.left - paneRect.left) + 'px';
+      stylePanel.classList.add('open');
+    }
+
+    function closeStylePanel() {
+      stylePanel.classList.remove('open');
+    }
+
+    function applyNodeStyle() {
+      if (!selectedNodeId) return;
+      const fill = $('#style-fill').value;
+      const stroke = $('#style-stroke').value;
+      const color = $('#style-color').value;
+      const styleLine = `    style ${selectedNodeId} fill:${fill},stroke:${stroke},color:${color}`;
+
+      let code = codeEditor.value;
+      // Remove existing style for this node
+      const regex = new RegExp(`^\\s*style\\s+${selectedNodeId}\\s+.*$`, 'gm');
+      code = code.replace(regex, '').replace(/\n{2,}/g, '\n');
+      // Append new style
+      code = code.trimEnd() + '\n' + styleLine;
+      codeEditor.value = code;
+      closeStylePanel();
+      scheduleRender();
+      showToast(`Estilo aplicado a ${selectedNodeId}`);
+    }
+
+    function startInlineEdit(nodeEl) {
+      const g = nodeEl.closest('.node');
+      if (!g) return;
+      const nodeId = extractNodeId(nodeEl);
+      if (!nodeId) return;
+
+      // Find the text content
+      const labelEl = g.querySelector('.nodeLabel') || g.querySelector('text');
+      if (!labelEl) return;
+      const oldText = labelEl.textContent.trim();
+
+      // Position the input over the text
+      const rect = labelEl.getBoundingClientRect();
+      const paneRect = $('#preview-pane').getBoundingClientRect();
+      inlineEdit.style.top = (rect.top - paneRect.top - 2) + 'px';
+      inlineEdit.style.left = (rect.left - paneRect.left - 4) + 'px';
+      inlineEdit.style.width = Math.max(80, rect.width + 20) + 'px';
+      inlineEdit.style.fontSize = getComputedStyle(labelEl).fontSize;
+      inlineEdit.value = oldText;
+      inlineEdit.classList.add('open');
+      inlineEdit.focus();
+      inlineEdit.select();
+
+      const finish = () => {
+        inlineEdit.classList.remove('open');
+        const newText = inlineEdit.value.trim();
+        if (newText && newText !== oldText) {
+          // Replace in code: A[oldText] → A[newText], A(oldText) → A(newText), etc.
+          const code = codeEditor.value;
+          const escaped = oldText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          const updated = code.replace(new RegExp(escaped, 'g'), newText);
+          if (updated !== code) {
+            codeEditor.value = updated;
+            scheduleRender();
+            showToast(`Texto actualizado: "${newText}"`);
+          }
+        }
+      };
+
+      inlineEdit.addEventListener('blur', finish, { once: true });
+      inlineEdit.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); inlineEdit.blur(); }
+        if (e.key === 'Escape') { inlineEdit.value = oldText; inlineEdit.blur(); }
+      });
+    }
+
+    function setupNodeInteraction() {
+      const nodes = previewOutput.querySelectorAll('.node');
+      nodes.forEach(node => {
+        // Single click: select + highlight in editor
+        node.addEventListener('click', (e) => {
+          e.stopPropagation();
+          selectNode(node);
+        });
+        // Double click: inline edit
+        node.addEventListener('dblclick', (e) => {
+          e.stopPropagation();
+          selectNode(node);
+          startInlineEdit(node);
+        });
+        // Right click: show style panel
+        node.addEventListener('contextmenu', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          selectNode(node);
+          showStylePanel(node);
+        });
+      });
+
+      // Click on empty preview area: deselect
+      previewViewport.addEventListener('click', (e) => {
+        if (!e.target.closest('.node') && !e.target.closest('#style-panel') && !e.target.closest('#inline-edit')) {
+          selectNode(null);
+        }
+      });
+    }
+
+    // === Color Utilities ===
+    function toHex(color) {
+      if (color.startsWith('#') && color.length === 7) return color;
+      if (color.startsWith('#') && color.length === 4) {
+        return '#' + color[1]+color[1] + color[2]+color[2] + color[3]+color[3];
+      }
+      return rgbToHex(color);
+    }
+
+    function rgbToHex(rgb) {
+      const match = rgb.match(/(\d+)/g);
+      if (!match || match.length < 3) return '#000000';
+      return '#' + match.slice(0,3).map(n => parseInt(n).toString(16).padStart(2,'0')).join('');
     }
 
     function scheduleRender() {
@@ -1277,6 +1581,8 @@
       configPanel.classList.remove('open');
       shortcutsOverlay.classList.remove('open');
       templatesPanel.classList.remove('open');
+      closeStylePanel();
+      selectNode(null);
       exitPresentation();
     }
 
@@ -1415,6 +1721,16 @@
 
     // Presentation
     $('#btn-present').addEventListener('click', enterPresentation);
+
+    // Style panel
+    $('#style-apply').addEventListener('click', applyNodeStyle);
+    $('#style-cancel').addEventListener('click', closeStylePanel);
+    // Sync color picker hex display
+    ['fill', 'stroke', 'color'].forEach(prop => {
+      $(`#style-${prop}`).addEventListener('input', (e) => {
+        $(`#style-${prop}-hex`).textContent = e.target.value;
+      });
+    });
 
     // File operations
     $('#btn-open-file').addEventListener('click', openFile);
