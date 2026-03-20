@@ -16,12 +16,11 @@
       --border-color: #d0d0d0;
       --accent: #4a90d9;
       --accent-hover: #357abd;
-      --error-bg: #fef2f2;
       --error-text: #dc2626;
       --success-text: #16a34a;
       --toolbar-bg: #f8f8f8;
-      --handle-color: #c0c0c0;
-      --handle-hover: #999999;
+      --editor-bg: #fafafa;
+      --editor-text: #1e1e1e;
       --shadow: 0 1px 3px rgba(0,0,0,0.1);
     }
 
@@ -35,21 +34,16 @@
       --border-color: #404040;
       --accent: #5b9fd6;
       --accent-hover: #79b8e8;
-      --error-bg: #3b1111;
       --error-text: #f87171;
       --success-text: #4ade80;
       --toolbar-bg: #2d2d2d;
-      --handle-color: #555555;
-      --handle-hover: #777777;
+      --editor-bg: #1e1e1e;
+      --editor-text: #d4d4d4;
       --shadow: 0 1px 3px rgba(0,0,0,0.3);
     }
 
     /* === Reset & Base === */
-    *, *::before, *::after {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     html, body {
       height: 100%;
@@ -61,330 +55,238 @@
     }
 
     /* === App Layout === */
-    #app {
-      display: flex;
-      flex-direction: column;
-      height: 100vh;
-    }
+    #app { display: flex; flex-direction: column; height: 100vh; }
 
     /* === Toolbar === */
     #toolbar {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 6px 12px;
-      background: var(--toolbar-bg);
+      display: flex; align-items: center; gap: 8px;
+      padding: 6px 12px; background: var(--toolbar-bg);
       border-bottom: 1px solid var(--border-color);
-      flex-shrink: 0;
-      flex-wrap: wrap;
+      flex-shrink: 0; flex-wrap: wrap;
     }
-
-    #toolbar .logo {
-      font-weight: 700;
-      font-size: 15px;
-      color: var(--accent);
-      margin-right: 8px;
-      white-space: nowrap;
+    #toolbar .logo { font-weight: 700; font-size: 15px; color: var(--accent); margin-right: 8px; white-space: nowrap; }
+    #toolbar .separator { width: 1px; height: 24px; background: var(--border-color); margin: 0 4px; }
+    #toolbar .group { display: flex; align-items: center; gap: 4px; }
+    #toolbar label { font-size: 12px; color: var(--text-secondary); white-space: nowrap; }
+    #toolbar select, #templates-panel select {
+      padding: 4px 8px; border: 1px solid var(--border-color); border-radius: 4px;
+      background: var(--bg-primary); color: var(--text-primary); font-size: 12px; cursor: pointer;
     }
-
-    #toolbar .separator {
-      width: 1px;
-      height: 24px;
-      background: var(--border-color);
-      margin: 0 4px;
+    #toolbar button, .floating-btn {
+      padding: 4px 10px; border: 1px solid var(--border-color); border-radius: 4px;
+      background: var(--bg-primary); color: var(--text-primary); font-size: 12px;
+      cursor: pointer; white-space: nowrap; transition: background 0.15s, border-color 0.15s;
     }
-
-    #toolbar .group {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-    }
-
-    #toolbar label {
-      font-size: 12px;
-      color: var(--text-secondary);
-      white-space: nowrap;
-    }
-
-    #toolbar select {
-      padding: 4px 8px;
-      border: 1px solid var(--border-color);
-      border-radius: 4px;
-      background: var(--bg-primary);
-      color: var(--text-primary);
-      font-size: 12px;
-      cursor: pointer;
-    }
-
-    #toolbar button {
-      padding: 4px 10px;
-      border: 1px solid var(--border-color);
-      border-radius: 4px;
-      background: var(--bg-primary);
-      color: var(--text-primary);
-      font-size: 12px;
-      cursor: pointer;
-      white-space: nowrap;
-      transition: background 0.15s, border-color 0.15s;
-    }
-
-    #toolbar button:hover {
-      background: var(--bg-tertiary);
-      border-color: var(--accent);
-    }
-
-    #toolbar button.active {
-      background: var(--accent);
-      color: #ffffff;
-      border-color: var(--accent);
-    }
-
-    .spacer {
-      flex: 1;
-    }
+    #toolbar button:hover, .floating-btn:hover { background: var(--bg-tertiary); border-color: var(--accent); }
+    #toolbar button.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .spacer { flex: 1; }
 
     /* === Main Content (Split Pane) === */
-    #main {
-      display: flex;
-      flex: 1;
-      overflow: hidden;
-      position: relative;
-    }
+    #main { display: flex; flex: 1; overflow: hidden; position: relative; }
 
     #editor-pane {
-      width: 50%;
-      min-width: 200px;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-      background: var(--bg-secondary);
+      width: 50%; min-width: 200px; display: flex; flex-direction: column;
+      overflow: hidden; background: var(--bg-secondary);
     }
 
-    #editor-container {
-      flex: 1;
-      overflow: hidden;
-    }
-
-    #editor-container .cm-editor {
-      height: 100%;
-    }
-
-    #editor-container .cm-scroller {
-      overflow: auto;
+    #code-editor {
+      flex: 1; width: 100%; padding: 12px 16px; border: none; outline: none; resize: none;
+      font-family: 'Cascadia Code', 'Fira Code', 'JetBrains Mono', 'Consolas', monospace;
+      font-size: 14px; line-height: 1.6; tab-size: 2;
+      background: var(--editor-bg); color: var(--editor-text);
     }
 
     /* === Resize Handle === */
     #resize-handle {
-      width: 5px;
-      cursor: col-resize;
-      background: var(--border-color);
-      flex-shrink: 0;
-      transition: background 0.15s;
-      position: relative;
+      width: 5px; cursor: col-resize; background: var(--border-color);
+      flex-shrink: 0; transition: background 0.15s;
     }
-
-    #resize-handle:hover,
-    #resize-handle.dragging {
-      background: var(--accent);
-    }
+    #resize-handle:hover, #resize-handle.dragging { background: var(--accent); }
 
     /* === Preview Pane === */
     #preview-pane {
-      flex: 1;
-      min-width: 200px;
-      overflow: auto;
-      background: var(--bg-primary);
-      display: flex;
-      align-items: flex-start;
-      justify-content: center;
+      flex: 1; min-width: 200px; overflow: hidden; background: var(--bg-primary);
+      position: relative;
+    }
+
+    #preview-viewport {
+      width: 100%; height: 100%; overflow: hidden; cursor: grab;
+    }
+    #preview-viewport.grabbing { cursor: grabbing; }
+
+    #mermaid-output {
+      transform-origin: 0 0;
       padding: 20px;
+      display: inline-block;
+    }
+    #mermaid-output svg { display: block; }
+
+    /* === Floating Toolbar (preview) === */
+    #floating-toolbar {
+      position: absolute; top: 10px; right: 10px;
+      display: flex; gap: 4px; z-index: 5;
+      background: var(--toolbar-bg); border: 1px solid var(--border-color);
+      border-radius: 6px; padding: 4px; box-shadow: var(--shadow);
+    }
+    .floating-btn {
+      width: 30px; height: 30px; padding: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px; font-weight: 700; border-radius: 4px;
+    }
+    #zoom-indicator {
+      font-size: 11px; color: var(--text-muted);
+      display: flex; align-items: center; padding: 0 6px;
+      min-width: 40px; justify-content: center;
     }
 
-    #preview-pane #mermaid-output {
-      max-width: 100%;
+    /* === Templates Panel === */
+    #templates-panel {
+      display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.5); z-index: 20;
+      align-items: center; justify-content: center;
     }
-
-    #preview-pane #mermaid-output svg {
-      max-width: 100%;
-      height: auto;
+    #templates-panel.open { display: flex; }
+    #templates-panel .templates-content {
+      background: var(--bg-primary); border-radius: 8px; padding: 20px;
+      max-width: 600px; width: 90%; max-height: 80vh; overflow-y: auto;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    }
+    #templates-panel h3 { margin-bottom: 12px; font-size: 16px; }
+    #templates-panel .template-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: 8px;
+    }
+    #templates-panel .template-card {
+      padding: 12px; border: 1px solid var(--border-color); border-radius: 6px;
+      cursor: pointer; transition: border-color 0.15s, background 0.15s;
+      background: var(--bg-secondary);
+    }
+    #templates-panel .template-card:hover {
+      border-color: var(--accent); background: var(--bg-tertiary);
+    }
+    #templates-panel .template-card .template-name {
+      font-weight: 600; font-size: 13px; margin-bottom: 4px;
+    }
+    #templates-panel .template-card .template-desc {
+      font-size: 11px; color: var(--text-muted);
     }
 
     /* === Status Bar === */
     #status-bar {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 4px 12px;
-      background: var(--toolbar-bg);
+      display: flex; align-items: center; gap: 12px;
+      padding: 4px 12px; background: var(--toolbar-bg);
       border-top: 1px solid var(--border-color);
-      font-size: 11px;
-      color: var(--text-secondary);
-      flex-shrink: 0;
+      font-size: 11px; color: var(--text-secondary); flex-shrink: 0;
     }
-
-    #status-bar .error {
-      color: var(--error-text);
-      flex: 1;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    #status-bar .success {
-      color: var(--success-text);
-    }
-
-    #status-bar .info {
-      color: var(--text-muted);
-    }
+    #status-bar .error { color: var(--error-text); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #status-bar .success { color: var(--success-text); }
+    #status-bar .info { color: var(--text-muted); }
 
     /* === Config Panel === */
     #config-panel {
-      display: none;
-      position: absolute;
-      top: 0;
-      right: 0;
-      width: 350px;
-      height: 100%;
-      background: var(--bg-secondary);
-      border-left: 1px solid var(--border-color);
-      box-shadow: -2px 0 8px rgba(0,0,0,0.1);
-      z-index: 10;
-      flex-direction: column;
+      display: none; position: absolute; top: 0; right: 0; width: 350px; height: 100%;
+      background: var(--bg-secondary); border-left: 1px solid var(--border-color);
+      box-shadow: -2px 0 8px rgba(0,0,0,0.1); z-index: 10; flex-direction: column;
     }
-
-    #config-panel.open {
-      display: flex;
-    }
-
+    #config-panel.open { display: flex; }
     #config-panel .panel-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 8px 12px;
-      border-bottom: 1px solid var(--border-color);
-      font-weight: 600;
-      font-size: 13px;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 8px 12px; border-bottom: 1px solid var(--border-color);
+      font-weight: 600; font-size: 13px;
     }
-
     #config-panel .panel-header button {
-      background: none;
-      border: none;
-      color: var(--text-secondary);
-      cursor: pointer;
-      font-size: 18px;
-      line-height: 1;
-      padding: 2px 6px;
+      background: none; border: none; color: var(--text-secondary);
+      cursor: pointer; font-size: 18px; line-height: 1; padding: 2px 6px;
     }
-
-    #config-panel .panel-body {
-      flex: 1;
-      overflow: auto;
-      padding: 12px;
-    }
-
+    #config-panel .panel-body { flex: 1; overflow: auto; padding: 12px; }
     #config-editor {
-      width: 100%;
-      min-height: 300px;
-      padding: 8px;
+      width: 100%; min-height: 300px; padding: 8px;
       font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
-      font-size: 12px;
-      border: 1px solid var(--border-color);
-      border-radius: 4px;
-      background: var(--bg-primary);
-      color: var(--text-primary);
-      resize: vertical;
-      tab-size: 2;
+      font-size: 12px; border: 1px solid var(--border-color); border-radius: 4px;
+      background: var(--bg-primary); color: var(--text-primary); resize: vertical; tab-size: 2;
     }
-
-    #config-panel .panel-body .hint {
-      font-size: 11px;
-      color: var(--text-muted);
-      margin-top: 8px;
-    }
-
+    .hint { font-size: 11px; color: var(--text-muted); margin-top: 8px; }
     #config-apply {
-      margin-top: 8px;
-      padding: 6px 14px;
-      background: var(--accent);
-      color: #ffffff;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 12px;
+      margin-top: 8px; padding: 6px 14px; background: var(--accent); color: #fff;
+      border: none; border-radius: 4px; cursor: pointer; font-size: 12px;
     }
+    #config-apply:hover { background: var(--accent-hover); }
 
-    #config-apply:hover {
-      background: var(--accent-hover);
-    }
-
-    /* === Toast notification === */
+    /* === Toast === */
     #toast {
-      position: fixed;
-      bottom: 40px;
-      left: 50%;
+      position: fixed; bottom: 40px; left: 50%;
       transform: translateX(-50%) translateY(20px);
-      background: var(--bg-tertiary);
-      color: var(--text-primary);
-      padding: 8px 16px;
-      border-radius: 6px;
-      font-size: 12px;
-      box-shadow: var(--shadow);
-      opacity: 0;
+      background: var(--bg-tertiary); color: var(--text-primary);
+      padding: 8px 16px; border-radius: 6px; font-size: 12px;
+      box-shadow: var(--shadow); opacity: 0;
       transition: opacity 0.2s, transform 0.2s;
-      pointer-events: none;
-      z-index: 100;
+      pointer-events: none; z-index: 100;
+    }
+    #toast.visible { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    /* === Overlays (shortcuts) === */
+    .overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.5); z-index: 200;
+      align-items: center; justify-content: center;
+    }
+    .overlay.open { display: flex; }
+    .overlay-content {
+      background: var(--bg-primary); border-radius: 8px; padding: 24px;
+      max-width: 420px; width: 90%; box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    }
+    .overlay h3 { margin-bottom: 12px; font-size: 16px; }
+    .overlay table { width: 100%; border-collapse: collapse; }
+    .overlay td { padding: 4px 8px; font-size: 13px; }
+    .overlay td:first-child { font-family: monospace; color: var(--accent); white-space: nowrap; width: 140px; }
+
+    /* === Presentation Mode (fullscreen) === */
+    #preview-pane:fullscreen {
+      background: #ffffff;
+      display: flex; align-items: center; justify-content: center;
+    }
+    [data-theme="dark"] #preview-pane:fullscreen { background: #1e1e1e; }
+
+    /* === Responsive (mobile) === */
+    @media (max-width: 768px) {
+      #toolbar { gap: 4px; padding: 4px 8px; }
+      #toolbar .separator { display: none; }
+      #toolbar .group { flex-wrap: wrap; }
+      #toolbar label { display: none; }
+      .spacer { display: none; }
+
+      #main { flex-direction: column; }
+      #editor-pane { width: 100% !important; min-width: 0; height: 50%; }
+      #resize-handle {
+        width: 100%; height: 5px; cursor: row-resize;
+      }
+      #preview-pane { min-width: 0; }
+
+      /* Tab switcher for mobile */
+      #mobile-tabs {
+        display: flex; flex-shrink: 0;
+        border-bottom: 1px solid var(--border-color);
+        background: var(--toolbar-bg);
+      }
+      #mobile-tabs button {
+        flex: 1; padding: 8px; border: none; background: none;
+        font-size: 13px; font-weight: 600; color: var(--text-muted);
+        cursor: pointer; border-bottom: 2px solid transparent;
+      }
+      #mobile-tabs button.active {
+        color: var(--accent); border-bottom-color: var(--accent);
+      }
+
+      #main.show-editor #preview-pane { display: none; }
+      #main.show-editor #editor-pane { height: 100%; }
+      #main.show-editor #resize-handle { display: none; }
+      #main.show-preview #editor-pane { display: none; }
+      #main.show-preview #preview-pane { flex: 1; }
+      #main.show-preview #resize-handle { display: none; }
     }
 
-    #toast.visible {
-      opacity: 1;
-      transform: translateX(-50%) translateY(0);
-    }
-
-    /* === Shortcuts help overlay === */
-    #shortcuts-overlay {
-      display: none;
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,0.5);
-      z-index: 200;
-      align-items: center;
-      justify-content: center;
-    }
-
-    #shortcuts-overlay.open {
-      display: flex;
-    }
-
-    #shortcuts-overlay .shortcuts-content {
-      background: var(--bg-primary);
-      border-radius: 8px;
-      padding: 24px;
-      max-width: 420px;
-      width: 90%;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-    }
-
-    #shortcuts-overlay h3 {
-      margin-bottom: 12px;
-      font-size: 16px;
-    }
-
-    #shortcuts-overlay table {
-      width: 100%;
-      border-collapse: collapse;
-    }
-
-    #shortcuts-overlay td {
-      padding: 4px 8px;
-      font-size: 13px;
-    }
-
-    #shortcuts-overlay td:first-child {
-      font-family: monospace;
-      color: var(--accent);
-      white-space: nowrap;
-      width: 140px;
+    @media (min-width: 769px) {
+      #mobile-tabs { display: none; }
     }
   </style>
 </head>
@@ -393,6 +295,10 @@
     <!-- Toolbar -->
     <div id="toolbar">
       <span class="logo">Mermaid Studio</span>
+      <div class="separator"></div>
+
+      <button id="btn-templates" title="Nuevo desde plantilla">Nuevo</button>
+
       <div class="separator"></div>
 
       <div class="group">
@@ -415,6 +321,12 @@
         </select>
       </div>
 
+      <div class="group">
+        <label for="font-size-input">Fuente:</label>
+        <input id="font-size-input" type="number" min="8" max="72" value="16" style="width:52px; padding:4px 6px; border:1px solid var(--border-color); border-radius:4px; background:var(--bg-primary); color:var(--text-primary); font-size:12px;">
+        <span style="font-size:11px; color:var(--text-muted)">px</span>
+      </div>
+
       <button id="btn-hand-drawn" title="Estilo dibujado a mano">Sketch</button>
 
       <div class="separator"></div>
@@ -422,14 +334,15 @@
       <div class="group">
         <button id="btn-export-svg" title="Ctrl+Shift+E">SVG</button>
         <button id="btn-export-png" title="Ctrl+Shift+P">PNG</button>
-        <button id="btn-copy-svg" title="Copiar SVG al portapapeles">Copiar SVG</button>
-        <button id="btn-copy-png" title="Copiar PNG al portapapeles">Copiar PNG</button>
+        <button id="btn-copy-svg" title="Copiar SVG">Copiar SVG</button>
+        <button id="btn-copy-png" title="Copiar PNG">Copiar PNG</button>
       </div>
 
       <div class="separator"></div>
 
       <button id="btn-share" title="Copiar enlace compartible">Compartir</button>
       <button id="btn-config" title="Configuracion Mermaid">Config</button>
+      <button id="btn-present" title="Modo presentación (F5)">Presentar</button>
 
       <span class="spacer"></span>
 
@@ -437,17 +350,34 @@
       <button id="btn-theme-ui" title="Alternar modo oscuro/claro UI">UI</button>
     </div>
 
+    <!-- Mobile tabs -->
+    <div id="mobile-tabs">
+      <button id="tab-editor" class="active">Editor</button>
+      <button id="tab-preview">Preview</button>
+    </div>
+
     <!-- Main split pane -->
-    <div id="main">
+    <div id="main" class="show-editor">
       <div id="editor-pane">
-        <div id="editor-container"></div>
+        <textarea id="code-editor" spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off"></textarea>
       </div>
       <div id="resize-handle"></div>
       <div id="preview-pane">
-        <div id="mermaid-output"></div>
+        <!-- Floating toolbar for zoom/export -->
+        <div id="floating-toolbar">
+          <button class="floating-btn" id="btn-zoom-in" title="Acercar">+</button>
+          <button class="floating-btn" id="btn-zoom-out" title="Alejar">&minus;</button>
+          <span id="zoom-indicator">100%</span>
+          <button class="floating-btn" id="btn-zoom-fit" title="Ajustar a vista">&#8596;</button>
+          <button class="floating-btn" id="btn-zoom-reset" title="Zoom 100%">1:1</button>
+        </div>
+        <!-- Zoomable/pannable viewport -->
+        <div id="preview-viewport">
+          <div id="mermaid-output"></div>
+        </div>
       </div>
 
-      <!-- Config panel (overlay inside main) -->
+      <!-- Config panel -->
       <div id="config-panel">
         <div class="panel-header">
           <span>Configuracion Mermaid</span>
@@ -455,20 +385,19 @@
         </div>
         <div class="panel-body">
           <textarea id="config-editor" spellcheck="false">{
-  "theme": "default",
   "flowchart": {
     "curve": "basis"
   }
 }</textarea>
           <button id="config-apply">Aplicar</button>
-          <p class="hint">JSON con opciones de Mermaid. Se aplica al re-renderizar. Ver documentacion en mermaid.js.org/config/schema-docs/config.html</p>
+          <p class="hint">JSON con opciones de Mermaid. Ver: mermaid.js.org/config/schema-docs/config.html</p>
         </div>
       </div>
     </div>
 
     <!-- Status bar -->
     <div id="status-bar">
-      <span id="status-message" class="success">Listo</span>
+      <span id="status-message" class="info">Cargando...</span>
       <span class="info" id="status-diagram-type"></span>
       <span class="info" id="status-render-time"></span>
     </div>
@@ -477,9 +406,18 @@
   <!-- Toast -->
   <div id="toast"></div>
 
+  <!-- Templates panel -->
+  <div id="templates-panel">
+    <div class="templates-content">
+      <h3>Nuevo diagrama desde plantilla</h3>
+      <div class="template-grid" id="template-grid"></div>
+      <p style="margin-top: 12px; font-size: 12px; color: var(--text-muted)">Pulsa Escape o click fuera para cerrar</p>
+    </div>
+  </div>
+
   <!-- Shortcuts overlay -->
-  <div id="shortcuts-overlay">
-    <div class="shortcuts-content">
+  <div id="shortcuts-overlay" class="overlay">
+    <div class="overlay-content">
       <h3>Atajos de teclado</h3>
       <table>
         <tr><td>Ctrl+Enter</td><td>Forzar re-render</td></tr>
@@ -488,43 +426,24 @@
         <tr><td>Ctrl+Shift+P</td><td>Exportar PNG</td></tr>
         <tr><td>Ctrl+Shift+C</td><td>Copiar SVG</td></tr>
         <tr><td>Ctrl+Shift+L</td><td>Copiar enlace</td></tr>
-        <tr><td>Escape</td><td>Cerrar paneles</td></tr>
+        <tr><td>Ctrl++ / Ctrl+-</td><td>Zoom in / out</td></tr>
+        <tr><td>Ctrl+0</td><td>Zoom 100%</td></tr>
+        <tr><td>F5</td><td>Modo presentación</td></tr>
+        <tr><td>Tab</td><td>Insertar tabulacion</td></tr>
+        <tr><td>Escape</td><td>Cerrar paneles / salir presentación</td></tr>
       </table>
       <p style="margin-top: 12px; font-size: 12px; color: var(--text-muted)">Pulsa Escape para cerrar</p>
     </div>
   </div>
 
-  <!-- Import maps for ESM dependencies -->
-  <script type="importmap">
-  {
-    "imports": {
-      "mermaid": "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs",
-      "codemirror": "https://esm.sh/codemirror@6.0.1",
-      "@codemirror/view": "https://esm.sh/@codemirror/view@6.36.8",
-      "@codemirror/state": "https://esm.sh/@codemirror/state@6.5.2",
-      "@codemirror/language": "https://esm.sh/@codemirror/language@6.11.0",
-      "@codemirror/commands": "https://esm.sh/@codemirror/commands@6.8.1",
-      "@codemirror/search": "https://esm.sh/@codemirror/search@6.5.11",
-      "@codemirror/theme-one-dark": "https://esm.sh/@codemirror/theme-one-dark@6.1.2",
-      "@codemirror/lang-markdown": "https://esm.sh/@codemirror/lang-markdown@6.3.2"
-    }
-  }
-  </script>
 
   <script type="module">
-    // === Imports ===
-    import mermaid from 'mermaid';
-    import { EditorView, keymap, lineNumbers, highlightActiveLine, highlightActiveLineGutter } from '@codemirror/view';
-    import { EditorState } from '@codemirror/state';
-    import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
-    import { syntaxHighlighting, defaultHighlightStyle, bracketMatching, indentOnInput } from '@codemirror/language';
-    import { searchKeymap, highlightSelectionMatches } from '@codemirror/search';
-    import { oneDark } from '@codemirror/theme-one-dark';
-    import { markdown } from '@codemirror/lang-markdown';
+    // === Import Mermaid from CDN ===
+    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
 
     // === Constants ===
     const STORAGE_KEY = 'mermaid-studio';
-    const DEBOUNCE_MS = 300;
+    const DEBOUNCE_MS = 400;
     const DEFAULT_CODE = `graph TD
     A[Inicio] -->|Paso 1| B(Proceso)
     B --> C{Decision}
@@ -533,52 +452,207 @@
     D --> F[Fin]
     E --> F`;
 
+    // === Templates ===
+    const TEMPLATES = [
+      { name: 'Flowchart', desc: 'Diagrama de flujo con decisiones', code: `graph TD
+    A[Inicio] --> B{Condición?}
+    B -->|Sí| C[Acción A]
+    B -->|No| D[Acción B]
+    C --> E[Resultado]
+    D --> E
+    E --> F[Fin]` },
+      { name: 'Sequence', desc: 'Diagrama de secuencia', code: `sequenceDiagram
+    participant U as Usuario
+    participant S as Servidor
+    participant DB as Base de Datos
+
+    U->>S: Petición HTTP
+    activate S
+    S->>DB: Query SQL
+    activate DB
+    DB-->>S: Resultados
+    deactivate DB
+    S-->>U: Respuesta JSON
+    deactivate S` },
+      { name: 'Class', desc: 'Diagrama de clases UML', code: `classDiagram
+    class Animal {
+        +String nombre
+        +int edad
+        +hacerSonido() void
+    }
+    class Perro {
+        +String raza
+        +ladrar() void
+    }
+    class Gato {
+        +bool domestico
+        +maullar() void
+    }
+    Animal <|-- Perro
+    Animal <|-- Gato` },
+      { name: 'State', desc: 'Diagrama de estados', code: `stateDiagram-v2
+    [*] --> Pendiente
+    Pendiente --> EnProceso : iniciar
+    EnProceso --> Revisión : completar
+    Revisión --> EnProceso : rechazar
+    Revisión --> Aprobado : aprobar
+    Aprobado --> [*]` },
+      { name: 'ER', desc: 'Entidad-Relación', code: `erDiagram
+    USUARIO ||--o{ PEDIDO : realiza
+    PEDIDO ||--|{ LINEA_PEDIDO : contiene
+    PRODUCTO ||--o{ LINEA_PEDIDO : aparece_en
+    USUARIO {
+        int id PK
+        string nombre
+        string email
+    }
+    PEDIDO {
+        int id PK
+        date fecha
+        float total
+    }
+    PRODUCTO {
+        int id PK
+        string nombre
+        float precio
+    }` },
+      { name: 'Gantt', desc: 'Diagrama de Gantt', code: `gantt
+    title Plan del Proyecto
+    dateFormat YYYY-MM-DD
+    section Diseño
+        Investigación       :a1, 2024-01-01, 7d
+        Prototipo           :a2, after a1, 5d
+    section Desarrollo
+        Backend             :b1, after a2, 14d
+        Frontend            :b2, after a2, 14d
+    section Testing
+        Tests unitarios     :c1, after b1, 5d
+        Tests integración   :c2, after c1, 3d` },
+      { name: 'Pie', desc: 'Gráfico circular', code: `pie title Distribución del tiempo
+    "Desarrollo" : 40
+    "Reuniones" : 20
+    "Testing" : 25
+    "Documentación" : 15` },
+      { name: 'Git Graph', desc: 'Flujo de ramas Git', code: `gitGraph
+    commit id: "init"
+    branch develop
+    checkout develop
+    commit id: "feature-1"
+    commit id: "feature-2"
+    checkout main
+    merge develop id: "v1.0"
+    branch hotfix
+    commit id: "fix-bug"
+    checkout main
+    merge hotfix id: "v1.0.1"` },
+      { name: 'Mindmap', desc: 'Mapa mental', code: `mindmap
+  root((Proyecto))
+    Planificación
+      Requisitos
+      Cronograma
+      Presupuesto
+    Desarrollo
+      Frontend
+      Backend
+      Base de datos
+    Testing
+      Unitarios
+      Integración
+      E2E
+    Despliegue
+      CI/CD
+      Monitorización` },
+      { name: 'Timeline', desc: 'Línea temporal', code: `timeline
+    title Historia del proyecto
+    section Q1
+        Requisitos
+        Investigacion
+    section Q2
+        Arquitectura
+        Prototipo
+    section Q3
+        Desarrollo
+        Testing
+    section Q4
+        Lanzamiento
+        Feedback` },
+      { name: 'User Journey', desc: 'Mapa de experiencia', code: `journey
+    title Compra online
+    section Descubrimiento
+        Buscar producto: 3: Usuario
+        Ver resultados: 4: Usuario
+    section Evaluacion
+        Leer resenas: 4: Usuario
+        Comparar precios: 3: Usuario
+    section Compra
+        Agregar al carrito: 5: Usuario
+        Pagar: 3: Usuario
+    section Post-compra
+        Recibir pedido: 5: Usuario
+        Dejar resena: 2: Usuario` },
+      { name: 'C4 Context', desc: 'Arquitectura C4', code: `C4Context
+    title Sistema de Pagos
+
+    Person(usuario, "Usuario", "Realiza pagos online")
+    System(sistema, "Sistema de Pagos", "Procesa transacciones")
+    System_Ext(banco, "API Bancaria", "Procesa tarjetas")
+    System_Ext(email, "Servicio Email", "Envia notificaciones")
+
+    Rel(usuario, sistema, "Usa", "HTTPS")
+    Rel(sistema, banco, "Procesa pago", "API REST")
+    Rel(sistema, email, "Envia notificacion", "SMTP")` },
+    ];
+
     // === State ===
     let currentSvg = '';
     let renderCounter = 0;
     let debounceTimer = null;
     let handDrawn = false;
-    let editorView = null;
+
+    // Zoom/Pan state
+    let zoomLevel = 1;
+    let panX = 0, panY = 0;
+    let isPanning = false;
+    let panStartX = 0, panStartY = 0;
+    let panStartPanX = 0, panStartPanY = 0;
 
     // === DOM References ===
     const $ = (sel) => document.querySelector(sel);
-    const editorContainer = $('#editor-container');
+    const codeEditor = $('#code-editor');
     const previewOutput = $('#mermaid-output');
+    const previewViewport = $('#preview-viewport');
     const statusMessage = $('#status-message');
     const statusDiagramType = $('#status-diagram-type');
     const statusRenderTime = $('#status-render-time');
     const themeSelect = $('#theme-select');
     const scaleSelect = $('#scale-select');
+    const fontSizeInput = $('#font-size-input');
     const configPanel = $('#config-panel');
     const configEditor = $('#config-editor');
     const shortcutsOverlay = $('#shortcuts-overlay');
-    const toast = $('#toast');
+    const templatesPanel = $('#templates-panel');
+    const zoomIndicator = $('#zoom-indicator');
+    const toastEl = $('#toast');
 
     // === Persistence ===
     function saveState() {
       const state = {
-        code: editorView.state.doc.toString(),
+        code: codeEditor.value,
         mermaidTheme: themeSelect.value,
         uiTheme: document.documentElement.dataset.theme,
-        handDrawn: handDrawn,
+        handDrawn,
         pngScale: scaleSelect.value,
+        fontSize: fontSizeInput.value,
         config: configEditor.value,
       };
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-      } catch (e) {
-        // localStorage full or unavailable
-      }
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch {}
     }
 
     function loadState() {
       try {
         const raw = localStorage.getItem(STORAGE_KEY);
-        if (raw) return JSON.parse(raw);
-      } catch (e) {
-        // corrupted data
-      }
-      return null;
+        return raw ? JSON.parse(raw) : null;
+      } catch { return null; }
     }
 
     // === URL Sharing ===
@@ -587,11 +661,8 @@
     }
 
     function decodeFromHash(hash) {
-      try {
-        return decodeURIComponent(escape(atob(hash)));
-      } catch {
-        return null;
-      }
+      try { return decodeURIComponent(escape(atob(hash))); }
+      catch { return null; }
     }
 
     function getCodeFromUrl() {
@@ -611,29 +682,131 @@
 
     // === Toast ===
     function showToast(message, duration = 2000) {
-      toast.textContent = message;
-      toast.classList.add('visible');
-      setTimeout(() => toast.classList.remove('visible'), duration);
+      toastEl.textContent = message;
+      toastEl.classList.add('visible');
+      setTimeout(() => toastEl.classList.remove('visible'), duration);
+    }
+
+    // === Zoom / Pan ===
+    function applyTransform() {
+      previewOutput.style.transform = `translate(${panX}px, ${panY}px) scale(${zoomLevel})`;
+      zoomIndicator.textContent = Math.round(zoomLevel * 100) + '%';
+    }
+
+    function zoomTo(level) {
+      zoomLevel = Math.max(0.1, Math.min(5, level));
+      applyTransform();
+    }
+
+    function zoomIn() { zoomTo(zoomLevel * 1.2); }
+    function zoomOut() { zoomTo(zoomLevel / 1.2); }
+    function zoomReset() { zoomLevel = 1; panX = 0; panY = 0; applyTransform(); }
+
+    function zoomFit() {
+      const svgEl = previewOutput.querySelector('svg');
+      if (!svgEl) return;
+      const container = previewViewport.getBoundingClientRect();
+      const svg = svgEl.getBoundingClientRect();
+      // Use natural size (at zoom=1)
+      const naturalW = svg.width / zoomLevel;
+      const naturalH = svg.height / zoomLevel;
+      const padding = 40;
+      const scaleX = (container.width - padding) / naturalW;
+      const scaleY = (container.height - padding) / naturalH;
+      zoomLevel = Math.min(scaleX, scaleY, 2); // don't zoom beyond 200%
+      panX = 0;
+      panY = 0;
+      applyTransform();
+    }
+
+    function setupPanZoom() {
+      // Wheel zoom (Ctrl+wheel)
+      previewViewport.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        const delta = e.deltaY > 0 ? 0.9 : 1.1;
+        zoomTo(zoomLevel * delta);
+      }, { passive: false });
+
+      // Pan with mouse drag
+      previewViewport.addEventListener('mousedown', (e) => {
+        if (e.button !== 0) return;
+        isPanning = true;
+        panStartX = e.clientX;
+        panStartY = e.clientY;
+        panStartPanX = panX;
+        panStartPanY = panY;
+        previewViewport.classList.add('grabbing');
+      });
+
+      document.addEventListener('mousemove', (e) => {
+        if (!isPanning) return;
+        panX = panStartPanX + (e.clientX - panStartX);
+        panY = panStartPanY + (e.clientY - panStartY);
+        applyTransform();
+      });
+
+      document.addEventListener('mouseup', () => {
+        if (isPanning) {
+          isPanning = false;
+          previewViewport.classList.remove('grabbing');
+        }
+      });
+    }
+
+    // === Templates ===
+    function setupTemplates() {
+      const grid = $('#template-grid');
+      TEMPLATES.forEach((t) => {
+        const card = document.createElement('div');
+        card.className = 'template-card';
+        card.innerHTML = `<div class="template-name">${t.name}</div><div class="template-desc">${t.desc}</div>`;
+        card.addEventListener('click', () => {
+          codeEditor.value = t.code;
+          templatesPanel.classList.remove('open');
+          scheduleRender();
+        });
+        grid.appendChild(card);
+      });
+
+      // Close on click outside
+      templatesPanel.addEventListener('click', (e) => {
+        if (e.target === templatesPanel) templatesPanel.classList.remove('open');
+      });
     }
 
     // === Mermaid Renderer ===
     function getMermaidConfig() {
       let userConfig = {};
-      try {
-        userConfig = JSON.parse(configEditor.value);
-      } catch {
-        // invalid JSON, ignore
-      }
+      try { userConfig = JSON.parse(configEditor.value); } catch {}
 
-      return {
+      const fontSize = fontSizeInput.value + 'px';
+      const config = {
         startOnLoad: false,
         securityLevel: 'loose',
-        theme: themeSelect.value,
-        look: handDrawn ? 'handDrawn' : 'classic',
         ...userConfig,
         theme: userConfig.theme || themeSelect.value,
+        look: handDrawn ? 'handDrawn' : 'classic',
+        themeVariables: {
+          fontSize,
+          ...(userConfig.themeVariables || {}),
+        },
       };
+      return config;
     }
+
+    const DIAGRAM_TYPES = {
+      'graph': 'Flowchart', 'flowchart': 'Flowchart',
+      'sequencediagram': 'Sequence', 'classdiagram': 'Class',
+      'statediagram': 'State', 'statediagram-v2': 'State',
+      'erdiagram': 'ER', 'gantt': 'Gantt', 'pie': 'Pie',
+      'gitgraph': 'Git Graph', 'mindmap': 'Mindmap',
+      'timeline': 'Timeline', 'sankey-beta': 'Sankey',
+      'xychart-beta': 'XY Chart', 'block-beta': 'Block',
+      'quadrantchart': 'Quadrant', 'requirementdiagram': 'Requirement',
+      'journey': 'User Journey', 'c4context': 'C4',
+      'kanban': 'Kanban', 'architecture-beta': 'Architecture',
+      'packet-beta': 'Packet', 'radar-beta': 'Radar',
+    };
 
     async function renderDiagram(code) {
       if (!code.trim()) {
@@ -646,7 +819,7 @@
         return;
       }
 
-      // Validate first
+      // Validate
       try {
         await mermaid.parse(code);
       } catch (err) {
@@ -659,12 +832,14 @@
 
       // Render
       const id = `mermaid-${++renderCounter}`;
-      const startTime = performance.now();
+      const t0 = performance.now();
 
       try {
         mermaid.initialize(getMermaidConfig());
+        const stale = document.getElementById(id);
+        if (stale) stale.remove();
         const { svg } = await mermaid.render(id, code);
-        const elapsed = (performance.now() - startTime).toFixed(0);
+        const elapsed = (performance.now() - t0).toFixed(0);
 
         currentSvg = svg;
         previewOutput.innerHTML = svg;
@@ -673,24 +848,8 @@
         statusMessage.textContent = 'Renderizado correctamente';
         statusRenderTime.textContent = `${elapsed}ms`;
 
-        // Try to detect diagram type from the code
-        const firstLine = code.trim().split('\n')[0].trim().toLowerCase();
-        const typeMap = {
-          'graph': 'Flowchart', 'flowchart': 'Flowchart',
-          'sequencediagram': 'Sequence', 'classDiagram': 'Class',
-          'classdiagram': 'Class',
-          'statediagram': 'State', 'statediagram-v2': 'State',
-          'erdiagram': 'ER', 'gantt': 'Gantt', 'pie': 'Pie',
-          'gitgraph': 'Git Graph', 'mindmap': 'Mindmap',
-          'timeline': 'Timeline', 'sankey-beta': 'Sankey',
-          'xychart-beta': 'XY Chart', 'block-beta': 'Block',
-          'quadrantchart': 'Quadrant', 'requirementdiagram': 'Requirement',
-          'journey': 'User Journey', 'c4context': 'C4',
-          'kanban': 'Kanban', 'architecture-beta': 'Architecture',
-          'packet-beta': 'Packet', 'radar-beta': 'Radar',
-        };
-        const firstWord = firstLine.split(/[\s{(:]/)[0];
-        statusDiagramType.textContent = typeMap[firstWord] || '';
+        const firstWord = code.trim().split('\n')[0].trim().toLowerCase().split(/[\s{(:]/)[0];
+        statusDiagramType.textContent = DIAGRAM_TYPES[firstWord] || '';
       } catch (err) {
         statusMessage.className = 'error';
         statusMessage.textContent = err.message || 'Error al renderizar';
@@ -698,11 +857,10 @@
       }
     }
 
-    function debouncedRender() {
+    function scheduleRender() {
       clearTimeout(debounceTimer);
       debounceTimer = setTimeout(() => {
-        const code = editorView.state.doc.toString();
-        renderDiagram(code);
+        renderDiagram(codeEditor.value);
         saveState();
       }, DEBOUNCE_MS);
     }
@@ -719,114 +877,178 @@
       URL.revokeObjectURL(url);
     }
 
+    // === SVG Preparation (inline styles for standalone export) ===
+    function prepareSvgForExport() {
+      const svgEl = previewOutput.querySelector('svg');
+      if (!svgEl) return null;
+
+      const clone = svgEl.cloneNode(true);
+      clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+      clone.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
+
+      const rect = svgEl.getBoundingClientRect();
+      clone.setAttribute('width', rect.width / zoomLevel);
+      clone.setAttribute('height', rect.height / zoomLevel);
+
+      // Inline computed styles on foreignObject descendants
+      const origFOs = svgEl.querySelectorAll('foreignObject *');
+      const cloneFOs = clone.querySelectorAll('foreignObject *');
+      for (let i = 0; i < origFOs.length; i++) {
+        const computed = window.getComputedStyle(origFOs[i]);
+        const target = cloneFOs[i];
+        if (!target) continue;
+        target.style.fontFamily = computed.fontFamily;
+        target.style.fontSize = computed.fontSize;
+        target.style.fontWeight = computed.fontWeight;
+        target.style.fontStyle = computed.fontStyle;
+        target.style.color = computed.color;
+        target.style.lineHeight = computed.lineHeight;
+        target.style.textAlign = computed.textAlign;
+        target.style.display = computed.display;
+        target.style.margin = computed.margin;
+        target.style.padding = computed.padding;
+      }
+
+      const mermaidStyles = document.querySelectorAll('style[data-mermaid-style], #mermaid-output style');
+      if (mermaidStyles.length) {
+        const styleEl = document.createElementNS('http://www.w3.org/2000/svg', 'style');
+        let css = '';
+        mermaidStyles.forEach(s => css += s.textContent + '\n');
+        styleEl.textContent = css;
+        clone.insertBefore(styleEl, clone.firstChild);
+      }
+
+      return new XMLSerializer().serializeToString(clone);
+    }
+
     function exportSvg() {
-      if (!currentSvg) return showToast('No hay diagrama para exportar');
-      const blob = new Blob([currentSvg], { type: 'image/svg+xml;charset=utf-8' });
-      downloadBlob(blob, 'diagrama.svg');
+      const svg = prepareSvgForExport();
+      if (!svg) return showToast('No hay diagrama para exportar');
+      downloadBlob(new Blob([svg], { type: 'image/svg+xml;charset=utf-8' }), 'diagrama.svg');
       showToast('SVG descargado');
     }
 
-    async function svgToPngBlob(svgString, scale) {
+    function svgToPngBlob(scale) {
       return new Promise((resolve, reject) => {
-        const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
-        const url = URL.createObjectURL(svgBlob);
+        const svg = prepareSvgForExport();
+        if (!svg) return reject(new Error('No hay diagrama'));
+
         const img = new Image();
         img.onload = () => {
           const canvas = document.createElement('canvas');
           canvas.width = img.naturalWidth * scale;
           canvas.height = img.naturalHeight * scale;
           const ctx = canvas.getContext('2d');
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
           ctx.scale(scale, scale);
           ctx.drawImage(img, 0, 0);
-          URL.revokeObjectURL(url);
-          canvas.toBlob((blob) => {
-            if (blob) resolve(blob);
-            else reject(new Error('Error al generar PNG'));
-          }, 'image/png');
+          canvas.toBlob(b => b ? resolve(b) : reject(new Error('Error PNG')), 'image/png');
         };
-        img.onerror = () => {
-          URL.revokeObjectURL(url);
-          reject(new Error('Error al cargar SVG'));
-        };
-        img.src = url;
+        img.onerror = () => reject(new Error('Error al renderizar PNG'));
+        img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
       });
     }
 
     async function exportPng() {
       if (!currentSvg) return showToast('No hay diagrama para exportar');
       try {
-        const scale = parseInt(scaleSelect.value, 10);
-        const blob = await svgToPngBlob(currentSvg, scale);
+        const blob = await svgToPngBlob(parseInt(scaleSelect.value));
         downloadBlob(blob, 'diagrama.png');
         showToast('PNG descargado');
-      } catch (err) {
-        showToast('Error al exportar PNG: ' + err.message);
-      }
+      } catch (e) { showToast('Error: ' + e.message); }
     }
 
     async function copySvg() {
-      if (!currentSvg) return showToast('No hay diagrama para copiar');
-      try {
-        await navigator.clipboard.writeText(currentSvg);
-        showToast('SVG copiado al portapapeles');
-      } catch {
-        showToast('Error al copiar SVG');
-      }
+      const svg = prepareSvgForExport();
+      if (!svg) return showToast('No hay diagrama');
+      try { await navigator.clipboard.writeText(svg); showToast('SVG copiado'); }
+      catch { showToast('Error al copiar'); }
     }
 
     async function copyPng() {
-      if (!currentSvg) return showToast('No hay diagrama para copiar');
+      if (!currentSvg) return showToast('No hay diagrama');
       try {
-        const scale = parseInt(scaleSelect.value, 10);
-        const blob = await svgToPngBlob(currentSvg, scale);
-        await navigator.clipboard.write([
-          new ClipboardItem({ 'image/png': blob })
-        ]);
-        showToast('PNG copiado al portapapeles');
-      } catch (err) {
-        showToast('Error al copiar PNG: ' + err.message);
-      }
+        const blob = await svgToPngBlob(parseInt(scaleSelect.value));
+        await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+        showToast('PNG copiado');
+      } catch (e) { showToast('Error: ' + e.message); }
     }
 
     function shareLink() {
-      const code = editorView.state.doc.toString();
-      const url = buildShareUrl(code);
+      const url = buildShareUrl(codeEditor.value);
       navigator.clipboard.writeText(url).then(
-        () => showToast('Enlace copiado al portapapeles'),
+        () => showToast('Enlace copiado'),
         () => showToast('Error al copiar enlace')
       );
     }
 
     // === UI Controllers ===
-
-    // Theme UI toggle
     function toggleUiTheme() {
       const html = document.documentElement;
-      const current = html.dataset.theme;
-      html.dataset.theme = current === 'dark' ? 'light' : 'dark';
+      html.dataset.theme = html.dataset.theme === 'dark' ? 'light' : 'dark';
       saveState();
     }
 
-    // Hand-drawn toggle
     function toggleHandDrawn() {
       handDrawn = !handDrawn;
       $('#btn-hand-drawn').classList.toggle('active', handDrawn);
-      debouncedRender();
-    }
-
-    // Config panel
-    function toggleConfigPanel() {
-      configPanel.classList.toggle('open');
+      scheduleRender();
     }
 
     function closeAllPanels() {
       configPanel.classList.remove('open');
       shortcutsOverlay.classList.remove('open');
+      templatesPanel.classList.remove('open');
+      exitPresentation();
     }
 
-    // Shortcuts overlay
-    function toggleShortcuts() {
-      shortcutsOverlay.classList.toggle('open');
+    // === Presentation Mode ===
+    function enterPresentation() {
+      if (!currentSvg) return showToast('No hay diagrama para presentar');
+      const pane = $('#preview-pane');
+      // Hide floating toolbar during presentation
+      $('#floating-toolbar').style.display = 'none';
+      // Reset zoom to fit
+      zoomReset();
+      zoomFit();
+      // Enter browser fullscreen
+      pane.requestFullscreen().catch(() => {
+        showToast('No se pudo entrar en pantalla completa');
+        $('#floating-toolbar').style.display = '';
+      });
+    }
+
+    function exitPresentation() {
+      if (document.fullscreenElement) {
+        document.exitFullscreen();
+      }
+    }
+
+    // Restore toolbar when exiting fullscreen
+    document.addEventListener('fullscreenchange', () => {
+      if (!document.fullscreenElement) {
+        $('#floating-toolbar').style.display = '';
+      }
+    });
+
+    // === Mobile Tabs ===
+    function setupMobileTabs() {
+      const tabEditor = $('#tab-editor');
+      const tabPreview = $('#tab-preview');
+      const main = $('#main');
+
+      tabEditor.addEventListener('click', () => {
+        main.className = 'show-editor';
+        tabEditor.classList.add('active');
+        tabPreview.classList.remove('active');
+      });
+
+      tabPreview.addEventListener('click', () => {
+        main.className = 'show-preview';
+        tabEditor.classList.remove('active');
+        tabPreview.classList.add('active');
+      });
     }
 
     // === Resize Handle ===
@@ -836,20 +1058,6 @@
       const main = $('#main');
       let startX, startWidth;
 
-      function onMouseMove(e) {
-        const dx = e.clientX - startX;
-        const newWidth = Math.max(200, Math.min(startWidth + dx, main.offsetWidth - 200));
-        editorPane.style.width = newWidth + 'px';
-      }
-
-      function onMouseUp() {
-        handle.classList.remove('dragging');
-        document.removeEventListener('mousemove', onMouseMove);
-        document.removeEventListener('mouseup', onMouseUp);
-        document.body.style.cursor = '';
-        document.body.style.userSelect = '';
-      }
-
       handle.addEventListener('mousedown', (e) => {
         e.preventDefault();
         startX = e.clientX;
@@ -857,148 +1065,105 @@
         handle.classList.add('dragging');
         document.body.style.cursor = 'col-resize';
         document.body.style.userSelect = 'none';
-        document.addEventListener('mousemove', onMouseMove);
-        document.addEventListener('mouseup', onMouseUp);
+
+        const onMove = (e) => {
+          const dx = e.clientX - startX;
+          editorPane.style.width = Math.max(200, Math.min(startWidth + dx, main.offsetWidth - 200)) + 'px';
+        };
+        const onUp = () => {
+          handle.classList.remove('dragging');
+          document.body.style.cursor = '';
+          document.body.style.userSelect = '';
+          document.removeEventListener('mousemove', onMove);
+          document.removeEventListener('mouseup', onUp);
+        };
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
       });
     }
 
-    // === Editor Setup ===
-    function createEditor(initialCode) {
-      const isDark = document.documentElement.dataset.theme === 'dark';
+    // === Tab key support in textarea ===
+    codeEditor.addEventListener('keydown', (e) => {
+      if (e.key === 'Tab') {
+        e.preventDefault();
+        const start = codeEditor.selectionStart;
+        const end = codeEditor.selectionEnd;
+        codeEditor.value = codeEditor.value.substring(0, start) + '  ' + codeEditor.value.substring(end);
+        codeEditor.selectionStart = codeEditor.selectionEnd = start + 2;
+        scheduleRender();
+      }
+    });
 
-      const updateListener = EditorView.updateListener.of((update) => {
-        if (update.docChanged) {
-          debouncedRender();
-        }
-      });
+    // === Global Keyboard Shortcuts ===
+    document.addEventListener('keydown', (e) => {
+      const ctrl = e.ctrlKey || e.metaKey;
 
-      const extensions = [
-        lineNumbers(),
-        highlightActiveLine(),
-        highlightActiveLineGutter(),
-        history(),
-        bracketMatching(),
-        indentOnInput(),
-        syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
-        highlightSelectionMatches(),
-        markdown(),
-        keymap.of([
-          ...defaultKeymap,
-          ...historyKeymap,
-          ...searchKeymap,
-          indentWithTab,
-        ]),
-        updateListener,
-        EditorView.lineWrapping,
-        oneDark,
-      ];
+      if (e.key === 'Escape') { closeAllPanels(); return; }
+      if (e.key === 'F5') { e.preventDefault(); enterPresentation(); return; }
 
-      editorView = new EditorView({
-        state: EditorState.create({
-          doc: initialCode,
-          extensions,
-        }),
-        parent: editorContainer,
-      });
-    }
-
-    // === Keyboard Shortcuts (global) ===
-    function setupGlobalShortcuts() {
-      document.addEventListener('keydown', (e) => {
-        const ctrl = e.ctrlKey || e.metaKey;
-
-        if (e.key === 'Escape') {
-          closeAllPanels();
-          return;
-        }
-
-        if (ctrl && e.shiftKey && e.key === 'E') {
-          e.preventDefault();
-          exportSvg();
-        } else if (ctrl && e.shiftKey && e.key === 'P') {
-          e.preventDefault();
-          exportPng();
-        } else if (ctrl && e.shiftKey && e.key === 'C') {
-          e.preventDefault();
-          copySvg();
-        } else if (ctrl && e.shiftKey && e.key === 'L') {
-          e.preventDefault();
-          shareLink();
-        } else if (ctrl && e.key === 'Enter') {
-          e.preventDefault();
-          const code = editorView.state.doc.toString();
-          renderDiagram(code);
-        } else if (ctrl && e.key === 's') {
-          e.preventDefault();
-          saveState();
-          showToast('Guardado');
-        }
-      });
-    }
+      if (ctrl && e.shiftKey && e.key === 'E') { e.preventDefault(); exportSvg(); }
+      else if (ctrl && e.shiftKey && e.key === 'P') { e.preventDefault(); exportPng(); }
+      else if (ctrl && e.shiftKey && e.key === 'C') { e.preventDefault(); copySvg(); }
+      else if (ctrl && e.shiftKey && e.key === 'L') { e.preventDefault(); shareLink(); }
+      else if (ctrl && e.key === 'Enter') { e.preventDefault(); renderDiagram(codeEditor.value); }
+      else if (ctrl && e.key === 's') { e.preventDefault(); saveState(); showToast('Guardado'); }
+      else if (ctrl && (e.key === '+' || e.key === '=')) { e.preventDefault(); zoomIn(); }
+      else if (ctrl && e.key === '-') { e.preventDefault(); zoomOut(); }
+      else if (ctrl && e.key === '0') { e.preventDefault(); zoomReset(); }
+    });
 
     // === Event Listeners ===
-    function setupEventListeners() {
-      // Toolbar buttons
-      $('#btn-export-svg').addEventListener('click', exportSvg);
-      $('#btn-export-png').addEventListener('click', exportPng);
-      $('#btn-copy-svg').addEventListener('click', copySvg);
-      $('#btn-copy-png').addEventListener('click', copyPng);
-      $('#btn-share').addEventListener('click', shareLink);
-      $('#btn-config').addEventListener('click', toggleConfigPanel);
-      $('#btn-hand-drawn').addEventListener('click', toggleHandDrawn);
-      $('#btn-theme-ui').addEventListener('click', toggleUiTheme);
-      $('#btn-shortcuts').addEventListener('click', toggleShortcuts);
-      $('#config-close').addEventListener('click', () => configPanel.classList.remove('open'));
-      $('#config-apply').addEventListener('click', () => {
-        debouncedRender();
-        showToast('Configuracion aplicada');
-      });
+    $('#btn-export-svg').addEventListener('click', exportSvg);
+    $('#btn-export-png').addEventListener('click', exportPng);
+    $('#btn-copy-svg').addEventListener('click', copySvg);
+    $('#btn-copy-png').addEventListener('click', copyPng);
+    $('#btn-share').addEventListener('click', shareLink);
+    $('#btn-config').addEventListener('click', () => configPanel.classList.toggle('open'));
+    $('#btn-hand-drawn').addEventListener('click', toggleHandDrawn);
+    $('#btn-theme-ui').addEventListener('click', toggleUiTheme);
+    $('#btn-shortcuts').addEventListener('click', () => shortcutsOverlay.classList.toggle('open'));
+    $('#btn-templates').addEventListener('click', () => templatesPanel.classList.toggle('open'));
+    $('#config-close').addEventListener('click', () => configPanel.classList.remove('open'));
+    $('#config-apply').addEventListener('click', () => { scheduleRender(); showToast('Configuracion aplicada'); });
+    themeSelect.addEventListener('change', scheduleRender);
+    fontSizeInput.addEventListener('change', scheduleRender);
+    codeEditor.addEventListener('input', scheduleRender);
+    shortcutsOverlay.addEventListener('click', (e) => { if (e.target === shortcutsOverlay) shortcutsOverlay.classList.remove('open'); });
 
-      // Theme change
-      themeSelect.addEventListener('change', () => debouncedRender());
+    // Floating toolbar - zoom buttons
+    $('#btn-zoom-in').addEventListener('click', zoomIn);
+    $('#btn-zoom-out').addEventListener('click', zoomOut);
+    $('#btn-zoom-fit').addEventListener('click', zoomFit);
+    $('#btn-zoom-reset').addEventListener('click', zoomReset);
 
-      // Close shortcuts on click outside
-      shortcutsOverlay.addEventListener('click', (e) => {
-        if (e.target === shortcutsOverlay) shortcutsOverlay.classList.remove('open');
-      });
-    }
+    // Presentation
+    $('#btn-present').addEventListener('click', enterPresentation);
 
-    // === Initialization ===
+    // === Init ===
     async function init() {
-      // Load saved state or URL code
       const urlCode = getCodeFromUrl();
       const saved = loadState();
-
       let initialCode = DEFAULT_CODE;
 
       if (urlCode) {
         initialCode = urlCode;
-        // Clear hash after loading
-        history.replaceState(null, '', window.location.pathname);
+        window.history.replaceState(null, '', window.location.pathname);
       } else if (saved) {
         initialCode = saved.code || DEFAULT_CODE;
         if (saved.mermaidTheme) themeSelect.value = saved.mermaidTheme;
         if (saved.uiTheme) document.documentElement.dataset.theme = saved.uiTheme;
-        if (saved.handDrawn) {
-          handDrawn = true;
-          $('#btn-hand-drawn').classList.add('active');
-        }
+        if (saved.handDrawn) { handDrawn = true; $('#btn-hand-drawn').classList.add('active'); }
         if (saved.pngScale) scaleSelect.value = saved.pngScale;
+        if (saved.fontSize) fontSizeInput.value = saved.fontSize;
         if (saved.config) configEditor.value = saved.config;
       }
 
-      // Init mermaid
+      codeEditor.value = initialCode;
       mermaid.initialize(getMermaidConfig());
-
-      // Create editor
-      createEditor(initialCode);
-
-      // Setup UI
       setupResize();
-      setupEventListeners();
-      setupGlobalShortcuts();
-
-      // Initial render
+      setupPanZoom();
+      setupTemplates();
+      setupMobileTabs();
       await renderDiagram(initialCode);
     }
 
