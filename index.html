@@ -315,6 +315,21 @@
       background: var(--bg-primary); color: var(--text-primary); resize: vertical; tab-size: 2;
     }
 
+    /* === Contextual Toolbar (editor) === */
+    #context-toolbar {
+      display: flex; gap: 3px; padding: 4px 8px; flex-wrap: wrap;
+      background: var(--toolbar-bg); border-bottom: 1px solid var(--border-color);
+      flex-shrink: 0; min-height: 30px; align-items: center;
+    }
+    .ctx-btn {
+      padding: 2px 7px; font-size: 11px; border: 1px solid var(--border-color);
+      border-radius: 3px; background: var(--bg-primary); color: var(--text-primary);
+      cursor: pointer; white-space: nowrap; transition: background 0.1s;
+    }
+    .ctx-btn:hover { background: var(--bg-tertiary); border-color: var(--accent); }
+    .ctx-sep { width: 1px; height: 16px; background: var(--border-color); margin: 0 2px; }
+    #ctx-label { font-size: 10px; color: var(--text-muted); margin-right: 4px; text-transform: uppercase; letter-spacing: 0.3px; }
+
     /* === Node Interaction === */
     #mermaid-output .node { cursor: pointer; }
     #mermaid-output .node:hover rect,
@@ -506,6 +521,7 @@
 
       <div class="separator"></div>
 
+      <button id="btn-batch" title="Exportar todos los tabs como ZIP">ZIP</button>
       <button id="btn-share" title="Copiar enlace compartible">Compartir</button>
       <button id="btn-config" title="Configuracion Mermaid">Config</button>
       <button id="btn-theme-builder" title="Theme Builder visual">Tema</button>
@@ -531,6 +547,9 @@
     <!-- Main split pane -->
     <div id="main" class="show-editor">
       <div id="editor-pane">
+        <div id="context-toolbar">
+          <span id="ctx-label">Insertar</span>
+        </div>
         <textarea id="code-editor" spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off"></textarea>
       </div>
       <div id="resize-handle"></div>
@@ -1232,6 +1251,149 @@
     }
 
     // === Templates ===
+    // === Contextual Toolbar ===
+    const CONTEXT_SNIPPETS = {
+      flowchart: [
+        { label: 'Nodo', insert: '    X[Texto]' },
+        { label: 'Nodo redondo', insert: '    X(Texto)' },
+        { label: 'Decisión', insert: '    X{Pregunta?}' },
+        { label: 'Círculo', insert: '    X((Texto))' },
+        { label: '-->', insert: ' --> ' },
+        { label: '-.->',  insert: ' -.-> ' },
+        { label: '==>', insert: ' ==> ' },
+        { label: '-->|texto|', insert: ' -->|texto| ' },
+        { label: 'Subgraph', insert: '\n    subgraph Grupo\n        \n    end\n' },
+        { label: 'Style', insert: '\n    style X fill:#f9f,stroke:#333\n' },
+        { label: 'classDef', insert: '\n    classDef nombre fill:#f9f,stroke:#333\n' },
+      ],
+      sequence: [
+        { label: 'Participant', insert: '    participant X as Nombre\n' },
+        { label: 'Actor', insert: '    actor X as Nombre\n' },
+        { label: '->>', insert: '    A->>B: Mensaje\n' },
+        { label: '-->>',insert: '    A-->>B: Respuesta\n' },
+        { label: 'activate', insert: '    activate A\n' },
+        { label: 'deactivate', insert: '    deactivate A\n' },
+        { label: 'loop', insert: '    loop Cada vez\n        \n    end\n' },
+        { label: 'alt', insert: '    alt Caso A\n        \n    else Caso B\n        \n    end\n' },
+        { label: 'opt', insert: '    opt Opcional\n        \n    end\n' },
+        { label: 'Note', insert: '    Note over A: Texto\n' },
+      ],
+      class: [
+        { label: 'Clase', insert: '    class Nombre {\n        +String campo\n        +metodo() void\n    }\n' },
+        { label: 'Herencia', insert: '    Padre <|-- Hijo\n' },
+        { label: 'Composición', insert: '    A *-- B\n' },
+        { label: 'Agregación', insert: '    A o-- B\n' },
+        { label: 'Asociación', insert: '    A --> B\n' },
+        { label: 'Interfaz', insert: '    class INombre {\n        <<interface>>\n        +metodo() void\n    }\n' },
+      ],
+      er: [
+        { label: 'Entidad', insert: '    ENTIDAD {\n        int id PK\n        string nombre\n    }\n' },
+        { label: '||--o{', insert: '    A ||--o{ B : tiene\n' },
+        { label: '||--|{', insert: '    A ||--|{ B : contiene\n' },
+        { label: '}o--o{', insert: '    A }o--o{ B : relaciona\n' },
+      ],
+      gantt: [
+        { label: 'Tarea', insert: '        Tarea nombre :id1, 2024-01-01, 7d\n' },
+        { label: 'Después de', insert: '        Tarea nombre :id2, after id1, 5d\n' },
+        { label: 'Section', insert: '    section Nombre\n' },
+        { label: 'Milestone', insert: '        Hito :milestone, id3, 2024-01-15, 0d\n' },
+      ],
+      state: [
+        { label: 'Estado', insert: '    Estado\n' },
+        { label: 'Transición', insert: '    A --> B : evento\n' },
+        { label: '[*] inicio', insert: '    [*] --> Estado\n' },
+        { label: 'fin [*]', insert: '    Estado --> [*]\n' },
+        { label: 'state compuesto', insert: '    state Grupo {\n        A --> B\n    }\n' },
+        { label: 'fork', insert: '    state fork <<fork>>\n' },
+      ],
+    };
+
+    // Map first keyword to snippet group
+    const KEYWORD_TO_GROUP = {
+      'graph': 'flowchart', 'flowchart': 'flowchart',
+      'sequencediagram': 'sequence',
+      'classdiagram': 'class',
+      'erdiagram': 'er',
+      'gantt': 'gantt',
+      'statediagram': 'state', 'statediagram-v2': 'state',
+    };
+
+    function detectDiagramType(code) {
+      const firstWord = code.trim().split('\n')[0].trim().toLowerCase().split(/[\s{(:]/)[0];
+      return KEYWORD_TO_GROUP[firstWord] || null;
+    }
+
+    function updateContextToolbar() {
+      const toolbar = $('#context-toolbar');
+      // Remove old buttons
+      toolbar.querySelectorAll('.ctx-btn, .ctx-sep').forEach(el => el.remove());
+
+      const type = detectDiagramType(codeEditor.value);
+      const snippets = type ? CONTEXT_SNIPPETS[type] : null;
+      const label = $('#ctx-label');
+
+      if (!snippets) {
+        label.textContent = 'Insertar (escribe un tipo de diagrama primero)';
+        return;
+      }
+
+      label.textContent = type.toUpperCase();
+      snippets.forEach((s, i) => {
+        const btn = document.createElement('button');
+        btn.className = 'ctx-btn';
+        btn.textContent = s.label;
+        btn.title = s.insert.trim();
+        btn.addEventListener('click', () => insertSnippet(s.insert));
+        toolbar.appendChild(btn);
+      });
+    }
+
+    function insertSnippet(text) {
+      const pos = codeEditor.selectionStart;
+      const before = codeEditor.value.substring(0, pos);
+      const after = codeEditor.value.substring(pos);
+      codeEditor.value = before + text + after;
+      codeEditor.selectionStart = codeEditor.selectionEnd = pos + text.length;
+      codeEditor.focus();
+      scheduleRender();
+    }
+
+    // === Batch Export ===
+    async function batchExportZip() {
+      if (tabs.length === 0) return showToast('No hay diagramas');
+      showToast('Generando ZIP...');
+
+      // Dynamically load JSZip from CDN
+      const JSZip = await import('https://cdn.jsdelivr.net/npm/jszip@3.10.1/+esm').then(m => m.default);
+      const zip = new JSZip();
+
+      // Save current tab state
+      const currentTab = activeTabId;
+      const originalCode = codeEditor.value;
+
+      for (const tab of tabs) {
+        // Add .mmd source file
+        zip.file(`${tab.name}.mmd`, tab.code);
+
+        // Try to render SVG for each tab
+        try {
+          mermaid.initialize(getMermaidConfig());
+          const id = `batch-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+          const { svg } = await mermaid.render(id, tab.code);
+          zip.file(`${tab.name}.svg`, svg);
+        } catch {
+          // Skip SVG for tabs that fail to render
+        }
+      }
+
+      // Restore
+      codeEditor.value = originalCode;
+
+      const blob = await zip.generateAsync({ type: 'blob' });
+      downloadBlob(blob, 'mermaid-studio-export.zip');
+      showToast(`ZIP exportado: ${tabs.length} diagramas`);
+    }
+
     // === Theme Builder ===
     const themePanel = $('#theme-panel');
     const NODE_PRESETS = [
@@ -1432,6 +1594,7 @@
         currentSvg = svg;
         previewOutput.innerHTML = svg;
         setupNodeInteraction();
+        updateContextToolbar();
 
         statusMessage.className = 'success';
         statusMessage.textContent = 'Renderizado correctamente';
@@ -1966,6 +2129,7 @@
     // File operations
     $('#btn-open-file').addEventListener('click', openFile);
     $('#btn-save-file').addEventListener('click', saveFile);
+    $('#btn-batch').addEventListener('click', batchExportZip);
 
     // Tab bar
     $('#btn-add-tab').addEventListener('click', () => createTab());
