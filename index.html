@@ -81,6 +81,41 @@
     #toolbar button.active { background: var(--accent); color: #fff; border-color: var(--accent); }
     .spacer { flex: 1; }
 
+    /* === Tab Bar === */
+    #tab-bar {
+      display: flex; align-items: center; background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border-color); flex-shrink: 0;
+      overflow-x: auto; min-height: 32px;
+    }
+    #tab-bar::-webkit-scrollbar { height: 3px; }
+    #tab-bar::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 3px; }
+    .tab {
+      display: flex; align-items: center; gap: 6px;
+      padding: 6px 12px; font-size: 12px; cursor: pointer;
+      border-right: 1px solid var(--border-color);
+      background: var(--bg-tertiary); color: var(--text-secondary);
+      white-space: nowrap; flex-shrink: 0;
+      transition: background 0.1s;
+    }
+    .tab:hover { background: var(--bg-primary); }
+    .tab.active { background: var(--bg-primary); color: var(--text-primary); font-weight: 600; }
+    .tab .tab-close {
+      width: 16px; height: 16px; border: none; background: none;
+      color: var(--text-muted); font-size: 14px; line-height: 1;
+      cursor: pointer; border-radius: 3px; display: flex;
+      align-items: center; justify-content: center; padding: 0;
+    }
+    .tab .tab-close:hover { background: var(--error-text); color: #fff; }
+    .tab-name { max-width: 120px; overflow: hidden; text-overflow: ellipsis; }
+    .tab-name[contenteditable] { outline: 1px solid var(--accent); border-radius: 2px; padding: 0 2px; max-width: none; }
+    #btn-add-tab {
+      width: 28px; height: 28px; border: none; background: none;
+      color: var(--text-muted); font-size: 18px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; margin: 0 4px;
+    }
+    #btn-add-tab:hover { color: var(--accent); }
+
     /* === Main Content (Split Pane) === */
     #main { display: flex; flex: 1; overflow: hidden; position: relative; }
 
@@ -298,6 +333,8 @@
       <div class="separator"></div>
 
       <button id="btn-templates" title="Nuevo desde plantilla">Nuevo</button>
+      <button id="btn-open-file" title="Abrir archivo .mmd">Abrir</button>
+      <button id="btn-save-file" title="Guardar como .mmd">Guardar</button>
 
       <div class="separator"></div>
 
@@ -348,6 +385,11 @@
 
       <button id="btn-shortcuts" title="Atajos de teclado">?</button>
       <button id="btn-theme-ui" title="Alternar modo oscuro/claro UI">UI</button>
+    </div>
+
+    <!-- Tab bar -->
+    <div id="tab-bar">
+      <button id="btn-add-tab" title="Nueva pestaña">+</button>
     </div>
 
     <!-- Mobile tabs -->
@@ -616,6 +658,10 @@
     let panStartX = 0, panStartY = 0;
     let panStartPanX = 0, panStartPanY = 0;
 
+    // Tabs state
+    let tabs = [];
+    let activeTabId = null;
+
     // === DOM References ===
     const $ = (sel) => document.querySelector(sel);
     const codeEditor = $('#code-editor');
@@ -632,27 +678,259 @@
     const shortcutsOverlay = $('#shortcuts-overlay');
     const templatesPanel = $('#templates-panel');
     const zoomIndicator = $('#zoom-indicator');
+    const tabBar = $('#tab-bar');
     const toastEl = $('#toast');
 
-    // === Persistence ===
-    function saveState() {
-      const state = {
-        code: codeEditor.value,
+    // === IndexedDB ===
+    const DB_NAME = 'mermaid-studio';
+    const DB_VERSION = 1;
+    let db = null;
+
+    function openDB() {
+      return new Promise((resolve, reject) => {
+        const req = indexedDB.open(DB_NAME, DB_VERSION);
+        req.onupgradeneeded = (e) => {
+          const db = e.target.result;
+          if (!db.objectStoreNames.contains('tabs')) {
+            db.createObjectStore('tabs', { keyPath: 'id' });
+          }
+        };
+        req.onsuccess = (e) => { db = e.target.result; resolve(db); };
+        req.onerror = () => reject(req.error);
+      });
+    }
+
+    function dbPut(store, data) {
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(store, 'readwrite');
+        tx.objectStore(store).put(data);
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+      });
+    }
+
+    function dbGetAll(store) {
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(store, 'readonly');
+        const req = tx.objectStore(store).getAll();
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      });
+    }
+
+    function dbDelete(store, key) {
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(store, 'readwrite');
+        tx.objectStore(store).delete(key);
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+      });
+    }
+
+    // === Tab Management ===
+    function generateId() {
+      return 'tab-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6);
+    }
+
+    function createTab(name, code, config) {
+      const tab = {
+        id: generateId(),
+        name: name || `Diagrama ${tabs.length + 1}`,
+        code: code || DEFAULT_CODE,
+        config: config || '{\n  "flowchart": {\n    "curve": "basis"\n  }\n}',
+      };
+      tabs.push(tab);
+      renderTabBar();
+      switchTab(tab.id);
+      saveTabsToDB();
+      return tab;
+    }
+
+    function switchTab(tabId) {
+      // Save current tab state before switching
+      if (activeTabId) {
+        const current = tabs.find(t => t.id === activeTabId);
+        if (current) {
+          current.code = codeEditor.value;
+          current.config = configEditor.value;
+        }
+      }
+
+      activeTabId = tabId;
+      const tab = tabs.find(t => t.id === tabId);
+      if (!tab) return;
+
+      codeEditor.value = tab.code;
+      configEditor.value = tab.config;
+      renderTabBar();
+      renderDiagram(tab.code);
+      saveSettings();
+    }
+
+    function closeTab(tabId) {
+      if (tabs.length <= 1) return showToast('No puedes cerrar la última pestaña');
+      const idx = tabs.findIndex(t => t.id === tabId);
+      tabs.splice(idx, 1);
+      dbDelete('tabs', tabId);
+
+      if (activeTabId === tabId) {
+        const newIdx = Math.min(idx, tabs.length - 1);
+        switchTab(tabs[newIdx].id);
+      } else {
+        renderTabBar();
+      }
+    }
+
+    function renameTab(tabId, newName) {
+      const tab = tabs.find(t => t.id === tabId);
+      if (tab && newName.trim()) {
+        tab.name = newName.trim();
+        saveTabsToDB();
+        renderTabBar();
+      }
+    }
+
+    function renderTabBar() {
+      // Remove existing tabs (keep the + button)
+      tabBar.querySelectorAll('.tab').forEach(el => el.remove());
+
+      const addBtn = $('#btn-add-tab');
+      tabs.forEach((tab) => {
+        const el = document.createElement('div');
+        el.className = 'tab' + (tab.id === activeTabId ? ' active' : '');
+        el.innerHTML = `<span class="tab-name">${tab.name}</span><button class="tab-close" title="Cerrar">&times;</button>`;
+        el.addEventListener('click', (e) => {
+          if (!e.target.classList.contains('tab-close')) switchTab(tab.id);
+        });
+        el.querySelector('.tab-close').addEventListener('click', (e) => {
+          e.stopPropagation();
+          closeTab(tab.id);
+        });
+        // Double-click to rename
+        el.querySelector('.tab-name').addEventListener('dblclick', (e) => {
+          const span = e.target;
+          span.contentEditable = true;
+          span.focus();
+          // Select all text
+          const range = document.createRange();
+          range.selectNodeContents(span);
+          window.getSelection().removeAllRanges();
+          window.getSelection().addRange(range);
+
+          const finish = () => {
+            span.contentEditable = false;
+            renameTab(tab.id, span.textContent);
+          };
+          span.addEventListener('blur', finish, { once: true });
+          span.addEventListener('keydown', (ev) => {
+            if (ev.key === 'Enter') { ev.preventDefault(); span.blur(); }
+          });
+        });
+        tabBar.insertBefore(el, addBtn);
+      });
+    }
+
+    async function saveTabsToDB() {
+      if (!db) return;
+      for (const tab of tabs) {
+        // Save current editor state to active tab
+        if (tab.id === activeTabId) {
+          tab.code = codeEditor.value;
+          tab.config = configEditor.value;
+        }
+        await dbPut('tabs', tab);
+      }
+    }
+
+    // === Settings (localStorage, not IndexedDB) ===
+    function saveSettings() {
+      const settings = {
+        activeTabId,
         mermaidTheme: themeSelect.value,
         uiTheme: document.documentElement.dataset.theme,
         handDrawn,
         pngScale: scaleSelect.value,
         fontSize: fontSizeInput.value,
-        config: configEditor.value,
       };
-      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch {}
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(settings)); } catch {}
     }
 
-    function loadState() {
+    function loadSettings() {
       try {
         const raw = localStorage.getItem(STORAGE_KEY);
         return raw ? JSON.parse(raw) : null;
       } catch { return null; }
+    }
+
+    function saveState() {
+      saveTabsToDB();
+      saveSettings();
+    }
+
+    // === File Operations ===
+    async function openFile() {
+      // Try File System Access API first (Chrome/Edge)
+      if (window.showOpenFilePicker) {
+        try {
+          const [handle] = await window.showOpenFilePicker({
+            types: [{ description: 'Mermaid', accept: { 'text/plain': ['.mmd', '.mermaid', '.md'] } }],
+          });
+          const file = await handle.getFile();
+          const text = await file.text();
+          const code = extractMermaidCode(text);
+          const name = file.name.replace(/\.(mmd|mermaid|md)$/, '');
+          createTab(name, code);
+          showToast(`Abierto: ${file.name}`);
+        } catch (e) {
+          if (e.name !== 'AbortError') showToast('Error al abrir archivo');
+        }
+      } else {
+        // Fallback: hidden file input
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.mmd,.mermaid,.md,.txt';
+        input.onchange = async () => {
+          const file = input.files[0];
+          if (!file) return;
+          const text = await file.text();
+          const code = extractMermaidCode(text);
+          const name = file.name.replace(/\.(mmd|mermaid|md|txt)$/, '');
+          createTab(name, code);
+          showToast(`Abierto: ${file.name}`);
+        };
+        input.click();
+      }
+    }
+
+    function extractMermaidCode(text) {
+      // If it's a markdown file, try to extract mermaid code blocks
+      const mermaidBlock = text.match(/```mermaid\s*\n([\s\S]*?)```/);
+      return mermaidBlock ? mermaidBlock[1].trim() : text;
+    }
+
+    async function saveFile() {
+      const code = codeEditor.value;
+      const tab = tabs.find(t => t.id === activeTabId);
+      const filename = (tab?.name || 'diagrama') + '.mmd';
+
+      if (window.showSaveFilePicker) {
+        try {
+          const handle = await window.showSaveFilePicker({
+            suggestedName: filename,
+            types: [{ description: 'Mermaid', accept: { 'text/plain': ['.mmd'] } }],
+          });
+          const writable = await handle.createWritable();
+          await writable.write(code);
+          await writable.close();
+          showToast(`Guardado: ${handle.name}`);
+        } catch (e) {
+          if (e.name !== 'AbortError') showToast('Error al guardar');
+        }
+      } else {
+        // Fallback: download
+        downloadBlob(new Blob([code], { type: 'text/plain' }), filename);
+        showToast(`Descargado: ${filename}`);
+      }
     }
 
     // === URL Sharing ===
@@ -761,9 +1039,8 @@
         card.className = 'template-card';
         card.innerHTML = `<div class="template-name">${t.name}</div><div class="template-desc">${t.desc}</div>`;
         card.addEventListener('click', () => {
-          codeEditor.value = t.code;
+          createTab(t.name, t.code);
           templatesPanel.classList.remove('open');
-          scheduleRender();
         });
         grid.appendChild(card);
       });
@@ -1139,32 +1416,84 @@
     // Presentation
     $('#btn-present').addEventListener('click', enterPresentation);
 
+    // File operations
+    $('#btn-open-file').addEventListener('click', openFile);
+    $('#btn-save-file').addEventListener('click', saveFile);
+
+    // Tab bar
+    $('#btn-add-tab').addEventListener('click', () => createTab());
+
+    // Drag and drop files
+    document.addEventListener('dragover', (e) => e.preventDefault());
+    document.addEventListener('drop', async (e) => {
+      e.preventDefault();
+      const file = e.dataTransfer.files[0];
+      if (!file) return;
+      const text = await file.text();
+      const code = extractMermaidCode(text);
+      const name = file.name.replace(/\.(mmd|mermaid|md|txt)$/, '');
+      createTab(name, code);
+      showToast(`Abierto: ${file.name}`);
+    });
+
     // === Init ===
     async function init() {
-      const urlCode = getCodeFromUrl();
-      const saved = loadState();
-      let initialCode = DEFAULT_CODE;
+      // Open IndexedDB
+      await openDB();
 
-      if (urlCode) {
-        initialCode = urlCode;
-        window.history.replaceState(null, '', window.location.pathname);
-      } else if (saved) {
-        initialCode = saved.code || DEFAULT_CODE;
-        if (saved.mermaidTheme) themeSelect.value = saved.mermaidTheme;
-        if (saved.uiTheme) document.documentElement.dataset.theme = saved.uiTheme;
-        if (saved.handDrawn) { handDrawn = true; $('#btn-hand-drawn').classList.add('active'); }
-        if (saved.pngScale) scaleSelect.value = saved.pngScale;
-        if (saved.fontSize) fontSizeInput.value = saved.fontSize;
-        if (saved.config) configEditor.value = saved.config;
+      // Load settings from localStorage
+      const settings = loadSettings();
+      if (settings) {
+        if (settings.mermaidTheme) themeSelect.value = settings.mermaidTheme;
+        if (settings.uiTheme) document.documentElement.dataset.theme = settings.uiTheme;
+        if (settings.handDrawn) { handDrawn = true; $('#btn-hand-drawn').classList.add('active'); }
+        if (settings.pngScale) scaleSelect.value = settings.pngScale;
+        if (settings.fontSize) fontSizeInput.value = settings.fontSize;
       }
 
-      codeEditor.value = initialCode;
+      // Load tabs from IndexedDB
+      const savedTabs = await dbGetAll('tabs');
+
+      // Check for URL code
+      const urlCode = getCodeFromUrl();
+      if (urlCode) {
+        window.history.replaceState(null, '', window.location.pathname);
+        // Load existing tabs + add URL tab
+        if (savedTabs.length) {
+          tabs = savedTabs;
+          renderTabBar();
+        }
+        createTab('Compartido', urlCode);
+      } else if (savedTabs.length) {
+        // Restore saved tabs
+        tabs = savedTabs;
+        renderTabBar();
+        const restoreId = settings?.activeTabId && tabs.find(t => t.id === settings.activeTabId)
+          ? settings.activeTabId : tabs[0].id;
+        activeTabId = null; // prevent saving before loading
+        switchTab(restoreId);
+      } else {
+        // Migrate from old localStorage format
+        const oldState = (() => {
+          try {
+            const raw = localStorage.getItem(STORAGE_KEY);
+            const parsed = raw ? JSON.parse(raw) : null;
+            return parsed?.code ? parsed : null;
+          } catch { return null; }
+        })();
+
+        if (oldState) {
+          createTab('Diagrama 1', oldState.code, oldState.config);
+        } else {
+          createTab('Diagrama 1', DEFAULT_CODE);
+        }
+      }
+
       mermaid.initialize(getMermaidConfig());
       setupResize();
       setupPanZoom();
       setupTemplates();
       setupMobileTabs();
-      await renderDiagram(initialCode);
     }
 
     init();
