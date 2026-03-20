@@ -1,0 +1,1008 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mermaid Studio</title>
+  <style>
+    /* === CSS Variables === */
+    :root {
+      --bg-primary: #ffffff;
+      --bg-secondary: #f5f5f5;
+      --bg-tertiary: #e8e8e8;
+      --text-primary: #1a1a1a;
+      --text-secondary: #555555;
+      --text-muted: #888888;
+      --border-color: #d0d0d0;
+      --accent: #4a90d9;
+      --accent-hover: #357abd;
+      --error-bg: #fef2f2;
+      --error-text: #dc2626;
+      --success-text: #16a34a;
+      --toolbar-bg: #f8f8f8;
+      --handle-color: #c0c0c0;
+      --handle-hover: #999999;
+      --shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+
+    [data-theme="dark"] {
+      --bg-primary: #1e1e1e;
+      --bg-secondary: #252526;
+      --bg-tertiary: #333333;
+      --text-primary: #d4d4d4;
+      --text-secondary: #a0a0a0;
+      --text-muted: #666666;
+      --border-color: #404040;
+      --accent: #5b9fd6;
+      --accent-hover: #79b8e8;
+      --error-bg: #3b1111;
+      --error-text: #f87171;
+      --success-text: #4ade80;
+      --toolbar-bg: #2d2d2d;
+      --handle-color: #555555;
+      --handle-hover: #777777;
+      --shadow: 0 1px 3px rgba(0,0,0,0.3);
+    }
+
+    /* === Reset & Base === */
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html, body {
+      height: 100%;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 14px;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      overflow: hidden;
+    }
+
+    /* === App Layout === */
+    #app {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+
+    /* === Toolbar === */
+    #toolbar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      background: var(--toolbar-bg);
+      border-bottom: 1px solid var(--border-color);
+      flex-shrink: 0;
+      flex-wrap: wrap;
+    }
+
+    #toolbar .logo {
+      font-weight: 700;
+      font-size: 15px;
+      color: var(--accent);
+      margin-right: 8px;
+      white-space: nowrap;
+    }
+
+    #toolbar .separator {
+      width: 1px;
+      height: 24px;
+      background: var(--border-color);
+      margin: 0 4px;
+    }
+
+    #toolbar .group {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    #toolbar label {
+      font-size: 12px;
+      color: var(--text-secondary);
+      white-space: nowrap;
+    }
+
+    #toolbar select {
+      padding: 4px 8px;
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      font-size: 12px;
+      cursor: pointer;
+    }
+
+    #toolbar button {
+      padding: 4px 10px;
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      font-size: 12px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.15s, border-color 0.15s;
+    }
+
+    #toolbar button:hover {
+      background: var(--bg-tertiary);
+      border-color: var(--accent);
+    }
+
+    #toolbar button.active {
+      background: var(--accent);
+      color: #ffffff;
+      border-color: var(--accent);
+    }
+
+    .spacer {
+      flex: 1;
+    }
+
+    /* === Main Content (Split Pane) === */
+    #main {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+      position: relative;
+    }
+
+    #editor-pane {
+      width: 50%;
+      min-width: 200px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      background: var(--bg-secondary);
+    }
+
+    #editor-container {
+      flex: 1;
+      overflow: hidden;
+    }
+
+    #editor-container .cm-editor {
+      height: 100%;
+    }
+
+    #editor-container .cm-scroller {
+      overflow: auto;
+    }
+
+    /* === Resize Handle === */
+    #resize-handle {
+      width: 5px;
+      cursor: col-resize;
+      background: var(--border-color);
+      flex-shrink: 0;
+      transition: background 0.15s;
+      position: relative;
+    }
+
+    #resize-handle:hover,
+    #resize-handle.dragging {
+      background: var(--accent);
+    }
+
+    /* === Preview Pane === */
+    #preview-pane {
+      flex: 1;
+      min-width: 200px;
+      overflow: auto;
+      background: var(--bg-primary);
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    #preview-pane #mermaid-output {
+      max-width: 100%;
+    }
+
+    #preview-pane #mermaid-output svg {
+      max-width: 100%;
+      height: auto;
+    }
+
+    /* === Status Bar === */
+    #status-bar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 4px 12px;
+      background: var(--toolbar-bg);
+      border-top: 1px solid var(--border-color);
+      font-size: 11px;
+      color: var(--text-secondary);
+      flex-shrink: 0;
+    }
+
+    #status-bar .error {
+      color: var(--error-text);
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    #status-bar .success {
+      color: var(--success-text);
+    }
+
+    #status-bar .info {
+      color: var(--text-muted);
+    }
+
+    /* === Config Panel === */
+    #config-panel {
+      display: none;
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: 350px;
+      height: 100%;
+      background: var(--bg-secondary);
+      border-left: 1px solid var(--border-color);
+      box-shadow: -2px 0 8px rgba(0,0,0,0.1);
+      z-index: 10;
+      flex-direction: column;
+    }
+
+    #config-panel.open {
+      display: flex;
+    }
+
+    #config-panel .panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--border-color);
+      font-weight: 600;
+      font-size: 13px;
+    }
+
+    #config-panel .panel-header button {
+      background: none;
+      border: none;
+      color: var(--text-secondary);
+      cursor: pointer;
+      font-size: 18px;
+      line-height: 1;
+      padding: 2px 6px;
+    }
+
+    #config-panel .panel-body {
+      flex: 1;
+      overflow: auto;
+      padding: 12px;
+    }
+
+    #config-editor {
+      width: 100%;
+      min-height: 300px;
+      padding: 8px;
+      font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+      font-size: 12px;
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      resize: vertical;
+      tab-size: 2;
+    }
+
+    #config-panel .panel-body .hint {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 8px;
+    }
+
+    #config-apply {
+      margin-top: 8px;
+      padding: 6px 14px;
+      background: var(--accent);
+      color: #ffffff;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+    }
+
+    #config-apply:hover {
+      background: var(--accent-hover);
+    }
+
+    /* === Toast notification === */
+    #toast {
+      position: fixed;
+      bottom: 40px;
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: var(--bg-tertiary);
+      color: var(--text-primary);
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-size: 12px;
+      box-shadow: var(--shadow);
+      opacity: 0;
+      transition: opacity 0.2s, transform 0.2s;
+      pointer-events: none;
+      z-index: 100;
+    }
+
+    #toast.visible {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    /* === Shortcuts help overlay === */
+    #shortcuts-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 200;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #shortcuts-overlay.open {
+      display: flex;
+    }
+
+    #shortcuts-overlay .shortcuts-content {
+      background: var(--bg-primary);
+      border-radius: 8px;
+      padding: 24px;
+      max-width: 420px;
+      width: 90%;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    }
+
+    #shortcuts-overlay h3 {
+      margin-bottom: 12px;
+      font-size: 16px;
+    }
+
+    #shortcuts-overlay table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    #shortcuts-overlay td {
+      padding: 4px 8px;
+      font-size: 13px;
+    }
+
+    #shortcuts-overlay td:first-child {
+      font-family: monospace;
+      color: var(--accent);
+      white-space: nowrap;
+      width: 140px;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <!-- Toolbar -->
+    <div id="toolbar">
+      <span class="logo">Mermaid Studio</span>
+      <div class="separator"></div>
+
+      <div class="group">
+        <label for="theme-select">Tema:</label>
+        <select id="theme-select">
+          <option value="default">Default</option>
+          <option value="dark">Dark</option>
+          <option value="forest">Forest</option>
+          <option value="neutral">Neutral</option>
+        </select>
+      </div>
+
+      <div class="group">
+        <label for="scale-select">Escala PNG:</label>
+        <select id="scale-select">
+          <option value="1">1x</option>
+          <option value="2" selected>2x</option>
+          <option value="3">3x</option>
+          <option value="4">4x</option>
+        </select>
+      </div>
+
+      <button id="btn-hand-drawn" title="Estilo dibujado a mano">Sketch</button>
+
+      <div class="separator"></div>
+
+      <div class="group">
+        <button id="btn-export-svg" title="Ctrl+Shift+E">SVG</button>
+        <button id="btn-export-png" title="Ctrl+Shift+P">PNG</button>
+        <button id="btn-copy-svg" title="Copiar SVG al portapapeles">Copiar SVG</button>
+        <button id="btn-copy-png" title="Copiar PNG al portapapeles">Copiar PNG</button>
+      </div>
+
+      <div class="separator"></div>
+
+      <button id="btn-share" title="Copiar enlace compartible">Compartir</button>
+      <button id="btn-config" title="Configuracion Mermaid">Config</button>
+
+      <span class="spacer"></span>
+
+      <button id="btn-shortcuts" title="Atajos de teclado">?</button>
+      <button id="btn-theme-ui" title="Alternar modo oscuro/claro UI">UI</button>
+    </div>
+
+    <!-- Main split pane -->
+    <div id="main">
+      <div id="editor-pane">
+        <div id="editor-container"></div>
+      </div>
+      <div id="resize-handle"></div>
+      <div id="preview-pane">
+        <div id="mermaid-output"></div>
+      </div>
+
+      <!-- Config panel (overlay inside main) -->
+      <div id="config-panel">
+        <div class="panel-header">
+          <span>Configuracion Mermaid</span>
+          <button id="config-close">&times;</button>
+        </div>
+        <div class="panel-body">
+          <textarea id="config-editor" spellcheck="false">{
+  "theme": "default",
+  "flowchart": {
+    "curve": "basis"
+  }
+}</textarea>
+          <button id="config-apply">Aplicar</button>
+          <p class="hint">JSON con opciones de Mermaid. Se aplica al re-renderizar. Ver documentacion en mermaid.js.org/config/schema-docs/config.html</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Status bar -->
+    <div id="status-bar">
+      <span id="status-message" class="success">Listo</span>
+      <span class="info" id="status-diagram-type"></span>
+      <span class="info" id="status-render-time"></span>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast"></div>
+
+  <!-- Shortcuts overlay -->
+  <div id="shortcuts-overlay">
+    <div class="shortcuts-content">
+      <h3>Atajos de teclado</h3>
+      <table>
+        <tr><td>Ctrl+Enter</td><td>Forzar re-render</td></tr>
+        <tr><td>Ctrl+S</td><td>Guardar en localStorage</td></tr>
+        <tr><td>Ctrl+Shift+E</td><td>Exportar SVG</td></tr>
+        <tr><td>Ctrl+Shift+P</td><td>Exportar PNG</td></tr>
+        <tr><td>Ctrl+Shift+C</td><td>Copiar SVG</td></tr>
+        <tr><td>Ctrl+Shift+L</td><td>Copiar enlace</td></tr>
+        <tr><td>Escape</td><td>Cerrar paneles</td></tr>
+      </table>
+      <p style="margin-top: 12px; font-size: 12px; color: var(--text-muted)">Pulsa Escape para cerrar</p>
+    </div>
+  </div>
+
+  <!-- Import maps for ESM dependencies -->
+  <script type="importmap">
+  {
+    "imports": {
+      "mermaid": "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs",
+      "codemirror": "https://esm.sh/codemirror@6.0.1",
+      "@codemirror/view": "https://esm.sh/@codemirror/view@6.36.8",
+      "@codemirror/state": "https://esm.sh/@codemirror/state@6.5.2",
+      "@codemirror/language": "https://esm.sh/@codemirror/language@6.11.0",
+      "@codemirror/commands": "https://esm.sh/@codemirror/commands@6.8.1",
+      "@codemirror/search": "https://esm.sh/@codemirror/search@6.5.11",
+      "@codemirror/theme-one-dark": "https://esm.sh/@codemirror/theme-one-dark@6.1.2",
+      "@codemirror/lang-markdown": "https://esm.sh/@codemirror/lang-markdown@6.3.2"
+    }
+  }
+  </script>
+
+  <script type="module">
+    // === Imports ===
+    import mermaid from 'mermaid';
+    import { EditorView, keymap, lineNumbers, highlightActiveLine, highlightActiveLineGutter } from '@codemirror/view';
+    import { EditorState } from '@codemirror/state';
+    import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
+    import { syntaxHighlighting, defaultHighlightStyle, bracketMatching, indentOnInput } from '@codemirror/language';
+    import { searchKeymap, highlightSelectionMatches } from '@codemirror/search';
+    import { oneDark } from '@codemirror/theme-one-dark';
+    import { markdown } from '@codemirror/lang-markdown';
+
+    // === Constants ===
+    const STORAGE_KEY = 'mermaid-studio';
+    const DEBOUNCE_MS = 300;
+    const DEFAULT_CODE = `graph TD
+    A[Inicio] -->|Paso 1| B(Proceso)
+    B --> C{Decision}
+    C -->|Si| D[Resultado A]
+    C -->|No| E[Resultado B]
+    D --> F[Fin]
+    E --> F`;
+
+    // === State ===
+    let currentSvg = '';
+    let renderCounter = 0;
+    let debounceTimer = null;
+    let handDrawn = false;
+    let editorView = null;
+
+    // === DOM References ===
+    const $ = (sel) => document.querySelector(sel);
+    const editorContainer = $('#editor-container');
+    const previewOutput = $('#mermaid-output');
+    const statusMessage = $('#status-message');
+    const statusDiagramType = $('#status-diagram-type');
+    const statusRenderTime = $('#status-render-time');
+    const themeSelect = $('#theme-select');
+    const scaleSelect = $('#scale-select');
+    const configPanel = $('#config-panel');
+    const configEditor = $('#config-editor');
+    const shortcutsOverlay = $('#shortcuts-overlay');
+    const toast = $('#toast');
+
+    // === Persistence ===
+    function saveState() {
+      const state = {
+        code: editorView.state.doc.toString(),
+        mermaidTheme: themeSelect.value,
+        uiTheme: document.documentElement.dataset.theme,
+        handDrawn: handDrawn,
+        pngScale: scaleSelect.value,
+        config: configEditor.value,
+      };
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      } catch (e) {
+        // localStorage full or unavailable
+      }
+    }
+
+    function loadState() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) return JSON.parse(raw);
+      } catch (e) {
+        // corrupted data
+      }
+      return null;
+    }
+
+    // === URL Sharing ===
+    function encodeToHash(code) {
+      return btoa(unescape(encodeURIComponent(code)));
+    }
+
+    function decodeFromHash(hash) {
+      try {
+        return decodeURIComponent(escape(atob(hash)));
+      } catch {
+        return null;
+      }
+    }
+
+    function getCodeFromUrl() {
+      const hash = window.location.hash.slice(1);
+      if (!hash) return null;
+      const params = new URLSearchParams(hash);
+      const encoded = params.get('code');
+      return encoded ? decodeFromHash(encoded) : null;
+    }
+
+    function buildShareUrl(code) {
+      const encoded = encodeToHash(code);
+      const url = new URL(window.location.href);
+      url.hash = `code=${encoded}`;
+      return url.toString();
+    }
+
+    // === Toast ===
+    function showToast(message, duration = 2000) {
+      toast.textContent = message;
+      toast.classList.add('visible');
+      setTimeout(() => toast.classList.remove('visible'), duration);
+    }
+
+    // === Mermaid Renderer ===
+    function getMermaidConfig() {
+      let userConfig = {};
+      try {
+        userConfig = JSON.parse(configEditor.value);
+      } catch {
+        // invalid JSON, ignore
+      }
+
+      return {
+        startOnLoad: false,
+        securityLevel: 'loose',
+        theme: themeSelect.value,
+        look: handDrawn ? 'handDrawn' : 'classic',
+        ...userConfig,
+        theme: userConfig.theme || themeSelect.value,
+      };
+    }
+
+    async function renderDiagram(code) {
+      if (!code.trim()) {
+        previewOutput.innerHTML = '';
+        statusMessage.className = 'info';
+        statusMessage.textContent = 'Editor vacio';
+        statusDiagramType.textContent = '';
+        statusRenderTime.textContent = '';
+        currentSvg = '';
+        return;
+      }
+
+      // Validate first
+      try {
+        await mermaid.parse(code);
+      } catch (err) {
+        statusMessage.className = 'error';
+        statusMessage.textContent = err.message || 'Error de sintaxis';
+        statusDiagramType.textContent = '';
+        statusRenderTime.textContent = '';
+        return;
+      }
+
+      // Render
+      const id = `mermaid-${++renderCounter}`;
+      const startTime = performance.now();
+
+      try {
+        mermaid.initialize(getMermaidConfig());
+        const { svg } = await mermaid.render(id, code);
+        const elapsed = (performance.now() - startTime).toFixed(0);
+
+        currentSvg = svg;
+        previewOutput.innerHTML = svg;
+
+        statusMessage.className = 'success';
+        statusMessage.textContent = 'Renderizado correctamente';
+        statusRenderTime.textContent = `${elapsed}ms`;
+
+        // Try to detect diagram type from the code
+        const firstLine = code.trim().split('\n')[0].trim().toLowerCase();
+        const typeMap = {
+          'graph': 'Flowchart', 'flowchart': 'Flowchart',
+          'sequencediagram': 'Sequence', 'classDiagram': 'Class',
+          'classdiagram': 'Class',
+          'statediagram': 'State', 'statediagram-v2': 'State',
+          'erdiagram': 'ER', 'gantt': 'Gantt', 'pie': 'Pie',
+          'gitgraph': 'Git Graph', 'mindmap': 'Mindmap',
+          'timeline': 'Timeline', 'sankey-beta': 'Sankey',
+          'xychart-beta': 'XY Chart', 'block-beta': 'Block',
+          'quadrantchart': 'Quadrant', 'requirementdiagram': 'Requirement',
+          'journey': 'User Journey', 'c4context': 'C4',
+          'kanban': 'Kanban', 'architecture-beta': 'Architecture',
+          'packet-beta': 'Packet', 'radar-beta': 'Radar',
+        };
+        const firstWord = firstLine.split(/[\s{(:]/)[0];
+        statusDiagramType.textContent = typeMap[firstWord] || '';
+      } catch (err) {
+        statusMessage.className = 'error';
+        statusMessage.textContent = err.message || 'Error al renderizar';
+        statusRenderTime.textContent = '';
+      }
+    }
+
+    function debouncedRender() {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        const code = editorView.state.doc.toString();
+        renderDiagram(code);
+        saveState();
+      }, DEBOUNCE_MS);
+    }
+
+    // === Export Functions ===
+    function downloadBlob(blob, filename) {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    function exportSvg() {
+      if (!currentSvg) return showToast('No hay diagrama para exportar');
+      const blob = new Blob([currentSvg], { type: 'image/svg+xml;charset=utf-8' });
+      downloadBlob(blob, 'diagrama.svg');
+      showToast('SVG descargado');
+    }
+
+    async function svgToPngBlob(svgString, scale) {
+      return new Promise((resolve, reject) => {
+        const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
+        const url = URL.createObjectURL(svgBlob);
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          canvas.width = img.naturalWidth * scale;
+          canvas.height = img.naturalHeight * scale;
+          const ctx = canvas.getContext('2d');
+          ctx.scale(scale, scale);
+          ctx.drawImage(img, 0, 0);
+          URL.revokeObjectURL(url);
+          canvas.toBlob((blob) => {
+            if (blob) resolve(blob);
+            else reject(new Error('Error al generar PNG'));
+          }, 'image/png');
+        };
+        img.onerror = () => {
+          URL.revokeObjectURL(url);
+          reject(new Error('Error al cargar SVG'));
+        };
+        img.src = url;
+      });
+    }
+
+    async function exportPng() {
+      if (!currentSvg) return showToast('No hay diagrama para exportar');
+      try {
+        const scale = parseInt(scaleSelect.value, 10);
+        const blob = await svgToPngBlob(currentSvg, scale);
+        downloadBlob(blob, 'diagrama.png');
+        showToast('PNG descargado');
+      } catch (err) {
+        showToast('Error al exportar PNG: ' + err.message);
+      }
+    }
+
+    async function copySvg() {
+      if (!currentSvg) return showToast('No hay diagrama para copiar');
+      try {
+        await navigator.clipboard.writeText(currentSvg);
+        showToast('SVG copiado al portapapeles');
+      } catch {
+        showToast('Error al copiar SVG');
+      }
+    }
+
+    async function copyPng() {
+      if (!currentSvg) return showToast('No hay diagrama para copiar');
+      try {
+        const scale = parseInt(scaleSelect.value, 10);
+        const blob = await svgToPngBlob(currentSvg, scale);
+        await navigator.clipboard.write([
+          new ClipboardItem({ 'image/png': blob })
+        ]);
+        showToast('PNG copiado al portapapeles');
+      } catch (err) {
+        showToast('Error al copiar PNG: ' + err.message);
+      }
+    }
+
+    function shareLink() {
+      const code = editorView.state.doc.toString();
+      const url = buildShareUrl(code);
+      navigator.clipboard.writeText(url).then(
+        () => showToast('Enlace copiado al portapapeles'),
+        () => showToast('Error al copiar enlace')
+      );
+    }
+
+    // === UI Controllers ===
+
+    // Theme UI toggle
+    function toggleUiTheme() {
+      const html = document.documentElement;
+      const current = html.dataset.theme;
+      html.dataset.theme = current === 'dark' ? 'light' : 'dark';
+      saveState();
+    }
+
+    // Hand-drawn toggle
+    function toggleHandDrawn() {
+      handDrawn = !handDrawn;
+      $('#btn-hand-drawn').classList.toggle('active', handDrawn);
+      debouncedRender();
+    }
+
+    // Config panel
+    function toggleConfigPanel() {
+      configPanel.classList.toggle('open');
+    }
+
+    function closeAllPanels() {
+      configPanel.classList.remove('open');
+      shortcutsOverlay.classList.remove('open');
+    }
+
+    // Shortcuts overlay
+    function toggleShortcuts() {
+      shortcutsOverlay.classList.toggle('open');
+    }
+
+    // === Resize Handle ===
+    function setupResize() {
+      const handle = $('#resize-handle');
+      const editorPane = $('#editor-pane');
+      const main = $('#main');
+      let startX, startWidth;
+
+      function onMouseMove(e) {
+        const dx = e.clientX - startX;
+        const newWidth = Math.max(200, Math.min(startWidth + dx, main.offsetWidth - 200));
+        editorPane.style.width = newWidth + 'px';
+      }
+
+      function onMouseUp() {
+        handle.classList.remove('dragging');
+        document.removeEventListener('mousemove', onMouseMove);
+        document.removeEventListener('mouseup', onMouseUp);
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+      }
+
+      handle.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        startX = e.clientX;
+        startWidth = editorPane.offsetWidth;
+        handle.classList.add('dragging');
+        document.body.style.cursor = 'col-resize';
+        document.body.style.userSelect = 'none';
+        document.addEventListener('mousemove', onMouseMove);
+        document.addEventListener('mouseup', onMouseUp);
+      });
+    }
+
+    // === Editor Setup ===
+    function createEditor(initialCode) {
+      const isDark = document.documentElement.dataset.theme === 'dark';
+
+      const updateListener = EditorView.updateListener.of((update) => {
+        if (update.docChanged) {
+          debouncedRender();
+        }
+      });
+
+      const extensions = [
+        lineNumbers(),
+        highlightActiveLine(),
+        highlightActiveLineGutter(),
+        history(),
+        bracketMatching(),
+        indentOnInput(),
+        syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
+        highlightSelectionMatches(),
+        markdown(),
+        keymap.of([
+          ...defaultKeymap,
+          ...historyKeymap,
+          ...searchKeymap,
+          indentWithTab,
+        ]),
+        updateListener,
+        EditorView.lineWrapping,
+        oneDark,
+      ];
+
+      editorView = new EditorView({
+        state: EditorState.create({
+          doc: initialCode,
+          extensions,
+        }),
+        parent: editorContainer,
+      });
+    }
+
+    // === Keyboard Shortcuts (global) ===
+    function setupGlobalShortcuts() {
+      document.addEventListener('keydown', (e) => {
+        const ctrl = e.ctrlKey || e.metaKey;
+
+        if (e.key === 'Escape') {
+          closeAllPanels();
+          return;
+        }
+
+        if (ctrl && e.shiftKey && e.key === 'E') {
+          e.preventDefault();
+          exportSvg();
+        } else if (ctrl && e.shiftKey && e.key === 'P') {
+          e.preventDefault();
+          exportPng();
+        } else if (ctrl && e.shiftKey && e.key === 'C') {
+          e.preventDefault();
+          copySvg();
+        } else if (ctrl && e.shiftKey && e.key === 'L') {
+          e.preventDefault();
+          shareLink();
+        } else if (ctrl && e.key === 'Enter') {
+          e.preventDefault();
+          const code = editorView.state.doc.toString();
+          renderDiagram(code);
+        } else if (ctrl && e.key === 's') {
+          e.preventDefault();
+          saveState();
+          showToast('Guardado');
+        }
+      });
+    }
+
+    // === Event Listeners ===
+    function setupEventListeners() {
+      // Toolbar buttons
+      $('#btn-export-svg').addEventListener('click', exportSvg);
+      $('#btn-export-png').addEventListener('click', exportPng);
+      $('#btn-copy-svg').addEventListener('click', copySvg);
+      $('#btn-copy-png').addEventListener('click', copyPng);
+      $('#btn-share').addEventListener('click', shareLink);
+      $('#btn-config').addEventListener('click', toggleConfigPanel);
+      $('#btn-hand-drawn').addEventListener('click', toggleHandDrawn);
+      $('#btn-theme-ui').addEventListener('click', toggleUiTheme);
+      $('#btn-shortcuts').addEventListener('click', toggleShortcuts);
+      $('#config-close').addEventListener('click', () => configPanel.classList.remove('open'));
+      $('#config-apply').addEventListener('click', () => {
+        debouncedRender();
+        showToast('Configuracion aplicada');
+      });
+
+      // Theme change
+      themeSelect.addEventListener('change', () => debouncedRender());
+
+      // Close shortcuts on click outside
+      shortcutsOverlay.addEventListener('click', (e) => {
+        if (e.target === shortcutsOverlay) shortcutsOverlay.classList.remove('open');
+      });
+    }
+
+    // === Initialization ===
+    async function init() {
+      // Load saved state or URL code
+      const urlCode = getCodeFromUrl();
+      const saved = loadState();
+
+      let initialCode = DEFAULT_CODE;
+
+      if (urlCode) {
+        initialCode = urlCode;
+        // Clear hash after loading
+        history.replaceState(null, '', window.location.pathname);
+      } else if (saved) {
+        initialCode = saved.code || DEFAULT_CODE;
+        if (saved.mermaidTheme) themeSelect.value = saved.mermaidTheme;
+        if (saved.uiTheme) document.documentElement.dataset.theme = saved.uiTheme;
+        if (saved.handDrawn) {
+          handDrawn = true;
+          $('#btn-hand-drawn').classList.add('active');
+        }
+        if (saved.pngScale) scaleSelect.value = saved.pngScale;
+        if (saved.config) configEditor.value = saved.config;
+      }
+
+      // Init mermaid
+      mermaid.initialize(getMermaidConfig());
+
+      // Create editor
+      createEditor(initialCode);
+
+      // Setup UI
+      setupResize();
+      setupEventListeners();
+      setupGlobalShortcuts();
+
+      // Initial render
+      await renderDiagram(initialCode);
+    }
+
+    init();
+  </script>
+</body>
+</html>
