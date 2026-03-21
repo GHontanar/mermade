@@ -524,6 +524,29 @@
       background: var(--accent); color: #fff; border-color: var(--accent);
     }
 
+    /* === Canvas Context Menu === */
+    #canvas-menu {
+      display: none; position: absolute; z-index: 16;
+      background: var(--bg-elevated); border: 1px solid var(--border-color);
+      border-radius: var(--radius-md); padding: var(--sp-xs);
+      box-shadow: var(--shadow-lg); min-width: 160px;
+    }
+    #canvas-menu.open { display: block; }
+    .cmenu-item {
+      display: flex; align-items: center; gap: var(--sp-sm);
+      padding: 6px 10px; font-size: 12px; cursor: pointer;
+      border-radius: var(--radius-sm); color: var(--text-primary);
+      transition: background 0.1s;
+    }
+    .cmenu-item:hover { background: var(--accent-soft); color: var(--accent); }
+    .cmenu-item .cmenu-icon {
+      width: 20px; text-align: center; font-size: 14px; color: var(--text-muted);
+    }
+    .cmenu-item:hover .cmenu-icon { color: var(--accent); }
+    .cmenu-sep {
+      height: 1px; background: var(--border-color); margin: var(--sp-xs) 0;
+    }
+
     /* === Inline Edit === */
     #inline-edit {
       display: none; position: absolute; z-index: 15;
@@ -745,6 +768,9 @@
             <button id="style-apply" class="primary">Aplicar</button>
           </div>
         </div>
+
+        <!-- Canvas context menu -->
+        <div id="canvas-menu"></div>
 
         <!-- Inline text edit input -->
         <input id="inline-edit" type="text" spellcheck="false">
@@ -2408,12 +2434,150 @@
         });
       });
 
-      // Click on empty preview area: deselect
+      // Click on empty preview area: deselect + close menus
       previewViewport.addEventListener('click', (e) => {
+        closeCanvasMenu();
         if (!e.target.closest('.node') && !e.target.closest('.conn-port') && !e.target.closest('#style-panel') && !e.target.closest('#inline-edit')) {
           selectNode(null);
         }
       });
+
+      // Right-click on empty canvas: show context menu
+      previewViewport.addEventListener('contextmenu', (e) => {
+        if (e.target.closest('.node')) return; // nodes have their own context menu
+        e.preventDefault();
+        closeStylePanel();
+        showCanvasMenu(e.clientX, e.clientY);
+      });
+    }
+
+    // === Canvas Context Menu ===
+    const canvasMenu = $('#canvas-menu');
+
+    const CANVAS_MENU_ITEMS = {
+      flowchart: [
+        { icon: '▭', label: 'Rectángulo', shape: 'rect' },
+        { icon: '◎', label: 'Redondeado', shape: 'round' },
+        { icon: '◇', label: 'Decisión', shape: 'diamond' },
+        { icon: '○', label: 'Círculo', shape: 'circle' },
+        { icon: '⊂⊃', label: 'Estadio', shape: 'stadium' },
+        { sep: true },
+        { icon: '▦', label: 'Subgraph', action: 'subgraph' },
+      ],
+      sequence: [
+        { icon: '▭', label: 'Participante (caja)', action: 'participant' },
+        { icon: '♟', label: 'Actor (persona)', action: 'actor' },
+        { sep: true },
+        { icon: '→', label: 'Mensaje', action: 'seq-message' },
+        { icon: '↻', label: 'Loop', action: 'seq-loop' },
+        { icon: '⑂', label: 'Alt (si/sino)', action: 'seq-alt' },
+      ],
+      state: [
+        { icon: '▭', label: 'Estado', action: 'state-node' },
+        { icon: '●', label: 'Inicio [*]', action: 'state-start' },
+        { icon: '◉', label: 'Fin [*]', action: 'state-end' },
+      ],
+      class: [
+        { icon: '▭', label: 'Clase', action: 'class-node' },
+        { icon: '◈', label: 'Interfaz', action: 'class-interface' },
+      ],
+      er: [
+        { icon: '▭', label: 'Entidad', action: 'er-entity' },
+      ],
+    };
+
+    function showCanvasMenu(x, y) {
+      const type = detectDiagramType(codeEditor.value);
+      const items = type ? CANVAS_MENU_ITEMS[type] : null;
+      if (!items) return;
+
+      canvasMenu.innerHTML = '';
+      items.forEach(item => {
+        if (item.sep) {
+          const sep = document.createElement('div');
+          sep.className = 'cmenu-sep';
+          canvasMenu.appendChild(sep);
+          return;
+        }
+        const el = document.createElement('div');
+        el.className = 'cmenu-item';
+        el.innerHTML = `<span class="cmenu-icon">${item.icon}</span>${item.label}`;
+        el.addEventListener('click', () => {
+          closeCanvasMenu();
+          if (item.shape) {
+            quickAddNode(item.shape);
+          } else if (item.action) {
+            handleCanvasMenuAction(item.action);
+          }
+        });
+        canvasMenu.appendChild(el);
+      });
+
+      const paneRect = $('#preview-pane').getBoundingClientRect();
+      canvasMenu.style.left = (x - paneRect.left) + 'px';
+      canvasMenu.style.top = (y - paneRect.top) + 'px';
+      canvasMenu.classList.add('open');
+    }
+
+    function closeCanvasMenu() {
+      canvasMenu.classList.remove('open');
+    }
+
+    function quickAddNode(shape) {
+      const name = prompt('Texto del nodo:');
+      if (!name?.trim()) return;
+      const id = textToId(name.trim());
+      const wraps = { rect: ['[',']'], round: ['(',')'], diamond: ['{','}'], circle: ['((','))'], stadium: ['([','])'] };
+      const [open, close] = wraps[shape] || ['[',']'];
+      insertAtEnd(`    ${id}${open}${name.trim()}${close}`);
+      showToast(`Nodo añadido: ${name.trim()}`);
+    }
+
+    function handleCanvasMenuAction(action) {
+      switch (action) {
+        case 'subgraph': openSubgraphWizard(); break;
+        case 'participant': {
+          const name = prompt('Nombre del participante:');
+          if (name?.trim()) {
+            const id = textToId(name.trim());
+            insertAtEnd(`    participant ${id} as ${name.trim()}`);
+          }
+          break;
+        }
+        case 'actor': {
+          const name = prompt('Nombre del actor:');
+          if (name?.trim()) {
+            const id = textToId(name.trim());
+            insertAtEnd(`    actor ${id} as ${name.trim()}`);
+          }
+          break;
+        }
+        case 'seq-message': openMessageWizard(); break;
+        case 'seq-loop': insertAtEnd('    loop Condicion\n        \n    end'); break;
+        case 'seq-alt': insertAtEnd('    alt Caso A\n        \n    else Caso B\n        \n    end'); break;
+        case 'state-node': {
+          const name = prompt('Nombre del estado:');
+          if (name?.trim()) insertAtEnd(`    ${textToId(name.trim())} : ${name.trim()}`);
+          break;
+        }
+        case 'state-start': insertAtEnd('    [*] --> NuevoEstado'); break;
+        case 'state-end': insertAtEnd('    Estado --> [*]'); break;
+        case 'class-node': {
+          const name = prompt('Nombre de la clase:');
+          if (name?.trim()) insertAtEnd(`    class ${name.trim()} {\n        +campo tipo\n        +metodo() void\n    }`);
+          break;
+        }
+        case 'class-interface': {
+          const name = prompt('Nombre de la interfaz:');
+          if (name?.trim()) insertAtEnd(`    class ${name.trim()} {\n        <<interface>>\n        +metodo() void\n    }`);
+          break;
+        }
+        case 'er-entity': {
+          const name = prompt('Nombre de la entidad:');
+          if (name?.trim()) insertAtEnd(`    ${name.trim().toUpperCase()} {\n        int id PK\n        string nombre\n    }`);
+          break;
+        }
+      }
     }
 
     // === Color Utilities ===
@@ -2576,6 +2740,7 @@
       templatesPanel.classList.remove('open');
       themePanel.classList.remove('open');
       closeStylePanel();
+      closeCanvasMenu();
       selectNode(null);
       exitPresentation();
     }
