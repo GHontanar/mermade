@@ -5,12 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="Editor de diagramas Mermaid sin límites. Crea flowcharts, sequence, ER, gantt y más con preview en vivo, temas, exportación y modo visual.">
   <meta name="theme-color" content="#4f6df5">
-  <meta property="og:title" content="Mermaid Studio">
+  <meta property="og:title" content="Mermade">
   <meta property="og:description" content="Editor de diagramas Mermaid gratuito y sin límites. Preview en vivo, temas, exportación SVG/PNG, multi-tab y más.">
   <meta property="og:type" content="website">
   <meta property="og:image" content="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='14' fill='%234f6df5'/><text x='32' y='44' font-size='36' text-anchor='middle' fill='white' font-family='sans-serif' font-weight='bold'>M</text></svg>">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='14' fill='%234f6df5'/><text x='32' y='44' font-size='36' text-anchor='middle' fill='white' font-family='sans-serif' font-weight='bold'>M</text></svg>">
-  <title>Mermaid Studio</title>
+  <title>Mermade</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
@@ -689,14 +689,14 @@
   <!-- Loading screen -->
   <div id="loader" style="position:fixed;inset:0;z-index:999;display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--bg-primary);gap:16px">
     <div style="width:40px;height:40px;border:3px solid var(--border-color);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite"></div>
-    <span style="font-size:13px;color:var(--text-muted);font-weight:500">Cargando Mermaid Studio...</span>
+    <span style="font-size:13px;color:var(--text-muted);font-weight:500">Cargando Mermade...</span>
   </div>
   <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
 
   <div id="app" style="visibility:hidden">
     <!-- Toolbar -->
     <div id="toolbar">
-      <span class="logo">Mermaid Studio</span>
+      <span class="logo">Mermade</span>
       <div class="separator"></div>
 
       <button id="btn-templates" title="Nuevo desde plantilla">Nuevo</button>
@@ -960,7 +960,7 @@
     }
 
     // === Constants ===
-    const STORAGE_KEY = 'mermaid-studio';
+    const STORAGE_KEY = 'mermade';
     const DEBOUNCE_MS = 400;
     const DEFAULT_CODE = `graph TD
     A[Inicio] -->|Paso 1| B(Proceso)
@@ -1158,7 +1158,7 @@
     const toastEl = $('#toast');
 
     // === IndexedDB ===
-    const DB_NAME = 'mermaid-studio';
+    const DB_NAME = 'mermade';
     const DB_VERSION = 1;
     let db = null;
 
@@ -1970,7 +1970,7 @@
       codeEditor.value = originalCode;
 
       const blob = await zip.generateAsync({ type: 'blob' });
-      downloadBlob(blob, 'mermaid-studio-export.zip');
+      downloadBlob(blob, 'mermade-export.zip');
       showToast(`ZIP exportado: ${tabs.length} diagramas`);
     }
 
