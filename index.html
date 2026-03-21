@@ -463,6 +463,31 @@
       stroke-width: 3px !important;
       stroke-dasharray: 5,3;
     }
+    /* Drop target highlight */
+    #mermaid-output .node.drop-target rect,
+    #mermaid-output .node.drop-target polygon,
+    #mermaid-output .node.drop-target circle,
+    #mermaid-output .node.drop-target path {
+      stroke: var(--success-text) !important;
+      stroke-width: 3px !important;
+      filter: brightness(1.1);
+    }
+
+    /* Connection ports */
+    .conn-port {
+      fill: var(--accent); stroke: #fff; stroke-width: 2;
+      cursor: crosshair; r: 5; opacity: 0;
+      transition: opacity 0.15s, r 0.15s;
+    }
+    .conn-port.visible { opacity: 1; }
+    .conn-port:hover { r: 7; fill: var(--accent-hover); }
+
+    /* Drag line */
+    .drag-line {
+      stroke: var(--accent); stroke-width: 2;
+      stroke-dasharray: 6,4; fill: none;
+      pointer-events: none;
+    }
 
     /* === Style Panel === */
     #style-panel {
@@ -2118,6 +2143,7 @@
     function selectNode(nodeEl) {
       // Deselect previous
       previewOutput.querySelectorAll('.node.selected').forEach(n => n.classList.remove('selected'));
+      removeConnPorts();
       closeStylePanel();
 
       if (!nodeEl) { selectedNodeId = null; return; }
@@ -2133,6 +2159,118 @@
         const lineIdx = findNodeInCode(selectedNodeId);
         highlightLineInEditor(lineIdx);
       }
+
+      // Show connection ports
+      showConnPorts(g);
+    }
+
+    // === Connection Ports & Drag-to-Connect ===
+    let dragLine = null;
+    let dragSourceId = null;
+
+    function showConnPorts(nodeG) {
+      const svgEl = previewOutput.querySelector('svg');
+      if (!svgEl) return;
+
+      const shape = nodeG.querySelector('rect, polygon, circle, .label-container');
+      if (!shape) return;
+
+      const bbox = nodeG.getBBox();
+      const cx = bbox.x + bbox.width / 2;
+      const cy = bbox.y + bbox.height / 2;
+
+      const positions = [
+        { x: cx, y: bbox.y },                    // top
+        { x: bbox.x + bbox.width, y: cy },       // right
+        { x: cx, y: bbox.y + bbox.height },       // bottom
+        { x: bbox.x, y: cy },                     // left
+      ];
+
+      positions.forEach(pos => {
+        const port = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        port.setAttribute('cx', pos.x);
+        port.setAttribute('cy', pos.y);
+        port.setAttribute('r', 5);
+        port.classList.add('conn-port');
+        // Animate in
+        requestAnimationFrame(() => port.classList.add('visible'));
+
+        port.addEventListener('mousedown', (e) => {
+          e.stopPropagation();
+          e.preventDefault();
+          startDragConnect(pos, extractNodeId(nodeG));
+        });
+
+        svgEl.appendChild(port);
+      });
+    }
+
+    function removeConnPorts() {
+      previewOutput.querySelectorAll('.conn-port').forEach(p => p.remove());
+      removeDragLine();
+    }
+
+    function startDragConnect(startPos, sourceId) {
+      const svgEl = previewOutput.querySelector('svg');
+      if (!svgEl) return;
+
+      dragSourceId = sourceId;
+
+      // Create drag line
+      dragLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      dragLine.classList.add('drag-line');
+      dragLine.setAttribute('x1', startPos.x);
+      dragLine.setAttribute('y1', startPos.y);
+      dragLine.setAttribute('x2', startPos.x);
+      dragLine.setAttribute('y2', startPos.y);
+      svgEl.appendChild(dragLine);
+
+      const svgRect = svgEl.getBoundingClientRect();
+      const svgViewBox = svgEl.viewBox?.baseVal;
+      const scaleFactorX = svgViewBox ? svgViewBox.width / svgRect.width : 1;
+      const scaleFactorY = svgViewBox ? svgViewBox.height / svgRect.height : 1;
+
+      const onMove = (e) => {
+        // Convert screen coords to SVG coords
+        const x = (e.clientX - svgRect.left) * scaleFactorX / zoomLevel + (svgViewBox?.x || 0);
+        const y = (e.clientY - svgRect.top) * scaleFactorY / zoomLevel + (svgViewBox?.y || 0);
+        dragLine.setAttribute('x2', x);
+        dragLine.setAttribute('y2', y);
+
+        // Highlight potential target
+        previewOutput.querySelectorAll('.node.drop-target').forEach(n => n.classList.remove('drop-target'));
+        const target = document.elementFromPoint(e.clientX, e.clientY)?.closest('.node');
+        if (target && extractNodeId(target) !== dragSourceId) {
+          target.classList.add('drop-target');
+        }
+      };
+
+      const onUp = (e) => {
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+
+        // Check if dropped on a node
+        previewOutput.querySelectorAll('.node.drop-target').forEach(n => n.classList.remove('drop-target'));
+        const target = document.elementFromPoint(e.clientX, e.clientY)?.closest('.node');
+        const targetId = target ? extractNodeId(target) : null;
+
+        removeDragLine();
+
+        if (targetId && targetId !== dragSourceId) {
+          // Insert connection
+          insertAtEnd(`    ${dragSourceId} --> ${targetId}`);
+          showToast(`Conexión: ${dragSourceId} → ${targetId}`);
+        }
+
+        dragSourceId = null;
+      };
+
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    }
+
+    function removeDragLine() {
+      if (dragLine) { dragLine.remove(); dragLine = null; }
     }
 
     function showStylePanel(nodeEl) {
@@ -2239,7 +2377,7 @@
     function setupNodeInteraction() {
       const nodes = previewOutput.querySelectorAll('.node');
       nodes.forEach(node => {
-        // Single click: select + highlight in editor
+        // Single click: select + show connection ports
         node.addEventListener('click', (e) => {
           e.stopPropagation();
           selectNode(node);
@@ -2257,11 +2395,15 @@
           selectNode(node);
           showStylePanel(node);
         });
+        // Prevent pan when interacting with nodes
+        node.addEventListener('mousedown', (e) => {
+          if (!e.target.closest('.conn-port')) e.stopPropagation();
+        });
       });
 
       // Click on empty preview area: deselect
       previewViewport.addEventListener('click', (e) => {
-        if (!e.target.closest('.node') && !e.target.closest('#style-panel') && !e.target.closest('#inline-edit')) {
+        if (!e.target.closest('.node') && !e.target.closest('.conn-port') && !e.target.closest('#style-panel') && !e.target.closest('#inline-edit')) {
           selectNode(null);
         }
       });
