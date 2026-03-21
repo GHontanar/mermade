@@ -884,9 +884,35 @@
   </div>
 
 
+  <!-- Mermaid: local fallback for offline use -->
+  <script src="lib/mermaid.min.js" defer onerror="this.remove()"></script>
+
   <script type="module">
-    // === Import Mermaid from CDN ===
-    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+    // === Import Mermaid: CDN first, fallback to local UMD ===
+    let mermaid;
+    try {
+      const mod = await import('https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs');
+      mermaid = mod.default;
+    } catch {
+      // CDN failed — use local UMD bundle (loaded via <script> above)
+      if (window.mermaid) {
+        mermaid = window.mermaid;
+      } else {
+        // Wait for UMD script to load
+        await new Promise((resolve) => {
+          const check = setInterval(() => {
+            if (window.mermaid) { clearInterval(check); resolve(); }
+          }, 50);
+          setTimeout(() => { clearInterval(check); resolve(); }, 5000);
+        });
+        mermaid = window.mermaid;
+      }
+    }
+
+    if (!mermaid) {
+      document.getElementById('loader').innerHTML = '<p style="color:#e5484d;font-size:14px">Error: No se pudo cargar Mermaid.js. Verifica tu conexión o el archivo lib/mermaid.min.js</p>';
+      throw new Error('Mermaid not available');
+    }
 
     // === Constants ===
     const STORAGE_KEY = 'mermaid-studio';
