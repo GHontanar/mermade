@@ -2172,18 +2172,26 @@
       const svgEl = previewOutput.querySelector('svg');
       if (!svgEl) return;
 
-      const shape = nodeG.querySelector('rect, polygon, circle, .label-container');
-      if (!shape) return;
+      // Use screen coordinates and convert to SVG space to handle all transforms
+      const screenRect = nodeG.getBoundingClientRect();
+      const svgPoint = (screenX, screenY) => {
+        const pt = svgEl.createSVGPoint();
+        pt.x = screenX;
+        pt.y = screenY;
+        const ctm = svgEl.getScreenCTM().inverse();
+        return pt.matrixTransform(ctm);
+      };
 
-      const bbox = nodeG.getBBox();
-      const cx = bbox.x + bbox.width / 2;
-      const cy = bbox.y + bbox.height / 2;
+      const topLeft = svgPoint(screenRect.left, screenRect.top);
+      const bottomRight = svgPoint(screenRect.right, screenRect.bottom);
+      const cx = (topLeft.x + bottomRight.x) / 2;
+      const cy = (topLeft.y + bottomRight.y) / 2;
 
       const positions = [
-        { x: cx, y: bbox.y },                    // top
-        { x: bbox.x + bbox.width, y: cy },       // right
-        { x: cx, y: bbox.y + bbox.height },       // bottom
-        { x: bbox.x, y: cy },                     // left
+        { x: cx, y: topLeft.y },                  // top
+        { x: bottomRight.x, y: cy },              // right
+        { x: cx, y: bottomRight.y },              // bottom
+        { x: topLeft.x, y: cy },                  // left
       ];
 
       positions.forEach(pos => {
@@ -2192,7 +2200,6 @@
         port.setAttribute('cy', pos.y);
         port.setAttribute('r', 5);
         port.classList.add('conn-port');
-        // Animate in
         requestAnimationFrame(() => port.classList.add('visible'));
 
         port.addEventListener('mousedown', (e) => {
@@ -2225,17 +2232,17 @@
       dragLine.setAttribute('y2', startPos.y);
       svgEl.appendChild(dragLine);
 
-      const svgRect = svgEl.getBoundingClientRect();
-      const svgViewBox = svgEl.viewBox?.baseVal;
-      const scaleFactorX = svgViewBox ? svgViewBox.width / svgRect.width : 1;
-      const scaleFactorY = svgViewBox ? svgViewBox.height / svgRect.height : 1;
+      const screenToSvg = (screenX, screenY) => {
+        const pt = svgEl.createSVGPoint();
+        pt.x = screenX;
+        pt.y = screenY;
+        return pt.matrixTransform(svgEl.getScreenCTM().inverse());
+      };
 
       const onMove = (e) => {
-        // Convert screen coords to SVG coords
-        const x = (e.clientX - svgRect.left) * scaleFactorX / zoomLevel + (svgViewBox?.x || 0);
-        const y = (e.clientY - svgRect.top) * scaleFactorY / zoomLevel + (svgViewBox?.y || 0);
-        dragLine.setAttribute('x2', x);
-        dragLine.setAttribute('y2', y);
+        const p = screenToSvg(e.clientX, e.clientY);
+        dragLine.setAttribute('x2', p.x);
+        dragLine.setAttribute('y2', p.y);
 
         // Highlight potential target
         previewOutput.querySelectorAll('.node.drop-target').forEach(n => n.classList.remove('drop-target'));
