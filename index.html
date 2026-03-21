@@ -1598,8 +1598,17 @@
     };
 
     function openSubgraphWizard() {
+      const selStart = codeEditor.selectionStart;
+      const selEnd = codeEditor.selectionEnd;
+      const hasSelection = selStart !== selEnd;
+      const selectedText = hasSelection ? codeEditor.value.substring(selStart, selEnd) : '';
+      const hint = hasSelection
+        ? `<p style="font-size:11px;color:var(--success-text);margin-bottom:8px">Se agrupará el texto seleccionado (${selectedText.split('\n').length} líneas)</p>`
+        : '';
+
       openWizard(`
         <h4>Crear grupo (subgraph)</h4>
+        ${hint}
         <div class="wizard-field">
           <label>Nombre del grupo</label>
           <input type="text" id="wiz-subgraph-name" placeholder="Ej: Proceso de pago">
@@ -1610,14 +1619,34 @@
           <button class="wizard-submit primary">Insertar</button>
         </div>
       `, () => {
-        const code = wizardGenerators.subgraph();
-        if (code && !code.startsWith('(')) insertAtEnd(code);
+        const name = wizardDialog.querySelector('#wiz-subgraph-name')?.value?.trim();
+        if (!name) return;
+
+        if (hasSelection) {
+          // Wrap selected text in subgraph
+          const before = codeEditor.value.substring(0, selStart);
+          const after = codeEditor.value.substring(selEnd);
+          // Indent selected lines by 4 spaces
+          const indented = selectedText.split('\n').map(l => '        ' + l.trimStart()).join('\n');
+          codeEditor.value = before + `    subgraph ${name}\n${indented}\n    end` + after;
+        } else {
+          insertAtEnd(`    subgraph ${name}\n        \n    end`);
+        }
+        scheduleRender();
       });
+
+      // Store selection info for preview
+      wizardGenerators._subgraphSelection = selectedText;
     }
 
     wizardGenerators.subgraph = () => {
       const name = wizardDialog.querySelector('#wiz-subgraph-name')?.value?.trim();
       if (!name) return '(escribe un nombre)';
+      const sel = wizardGenerators._subgraphSelection;
+      if (sel) {
+        const indented = sel.split('\n').map(l => '        ' + l.trimStart()).join('\n');
+        return `    subgraph ${name}\n${indented}\n    end`;
+      }
       return `    subgraph ${name}\n        \n    end`;
     };
 
