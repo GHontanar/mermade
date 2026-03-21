@@ -2290,9 +2290,12 @@
         removeDragLine();
 
         if (targetId && targetId !== dragSourceId) {
-          // Insert connection
-          insertAtEnd(`    ${dragSourceId} --> ${targetId}`);
-          showToast(`Conexión: ${dragSourceId} → ${targetId}`);
+          const src = dragSourceId;
+          quickPrompt('Texto de la conexión (opcional)', 'Ej: si válido').then(label => {
+            const arrow = label ? `-->|${label}|` : '-->';
+            insertAtEnd(`    ${src} ${arrow} ${targetId}`);
+            showToast(`Conexión: ${src} → ${targetId}`);
+          });
         }
 
         dragSourceId = null;
