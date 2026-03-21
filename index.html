@@ -2523,60 +2523,92 @@
       canvasMenu.classList.remove('open');
     }
 
+    // Quick prompt (replaces native prompt() with styled dialog)
+    function quickPrompt(title, placeholder) {
+      return new Promise((resolve) => {
+        openWizard(`
+          <h4>${title}</h4>
+          <div class="wizard-field">
+            <input type="text" id="wiz-quick-input" placeholder="${placeholder || ''}">
+          </div>
+          <div class="wizard-actions">
+            <button class="wizard-cancel">Cancelar</button>
+            <button class="wizard-submit primary">Aceptar</button>
+          </div>
+        `, () => {
+          const val = wizardDialog.querySelector('#wiz-quick-input')?.value?.trim();
+          resolve(val || null);
+        });
+        // Also resolve null on cancel/close
+        const origClose = closeWizard;
+        const patchedClose = () => { origClose(); resolve(null); };
+        wizardDialog.querySelector('.wizard-cancel').onclick = patchedClose;
+      });
+    }
+
     function quickAddNode(shape) {
-      const name = prompt('Texto del nodo:');
-      if (!name?.trim()) return;
-      const id = textToId(name.trim());
-      const wraps = { rect: ['[',']'], round: ['(',')'], diamond: ['{','}'], circle: ['((','))'], stadium: ['([','])'] };
-      const [open, close] = wraps[shape] || ['[',']'];
-      insertAtEnd(`    ${id}${open}${name.trim()}${close}`);
-      showToast(`Nodo añadido: ${name.trim()}`);
+      quickPrompt('Texto del nodo', 'Ej: Revisar pedido').then(name => {
+        if (!name) return;
+        const id = textToId(name);
+        const wraps = { rect: ['[',']'], round: ['(',')'], diamond: ['{','}'], circle: ['((','))'], stadium: ['([','])'] };
+        const [open, close] = wraps[shape] || ['[',']'];
+        insertAtEnd(`    ${id}${open}${name}${close}`);
+        showToast(`Nodo añadido: ${name}`);
+      });
     }
 
     function handleCanvasMenuAction(action) {
       switch (action) {
         case 'subgraph': openSubgraphWizard(); break;
-        case 'participant': {
-          const name = prompt('Nombre del participante:');
-          if (name?.trim()) {
-            const id = textToId(name.trim());
-            insertAtEnd(`    participant ${id} as ${name.trim()}`);
-          }
+        case 'participant':
+          quickPrompt('Nombre del participante', 'Ej: Servidor API').then(name => {
+            if (!name) return;
+            insertAtEnd(`    participant ${textToId(name)} as ${name}`);
+          });
           break;
-        }
-        case 'actor': {
-          const name = prompt('Nombre del actor:');
-          if (name?.trim()) {
-            const id = textToId(name.trim());
-            insertAtEnd(`    actor ${id} as ${name.trim()}`);
-          }
+        case 'actor':
+          quickPrompt('Nombre del actor', 'Ej: Usuario').then(name => {
+            if (!name) return;
+            insertAtEnd(`    actor ${textToId(name)} as ${name}`);
+          });
           break;
-        }
         case 'seq-message': openMessageWizard(); break;
-        case 'seq-loop': insertAtEnd('    loop Condicion\n        \n    end'); break;
-        case 'seq-alt': insertAtEnd('    alt Caso A\n        \n    else Caso B\n        \n    end'); break;
-        case 'state-node': {
-          const name = prompt('Nombre del estado:');
-          if (name?.trim()) insertAtEnd(`    ${textToId(name.trim())} : ${name.trim()}`);
+        case 'seq-loop':
+          quickPrompt('Condición del loop', 'Ej: Mientras haya datos').then(label => {
+            insertAtEnd(`    loop ${label || 'Condicion'}\n        \n    end`);
+          });
           break;
-        }
+        case 'seq-alt':
+          quickPrompt('Condición principal', 'Ej: Si es válido').then(label => {
+            insertAtEnd(`    alt ${label || 'Caso A'}\n        \n    else Otro caso\n        \n    end`);
+          });
+          break;
+        case 'state-node':
+          quickPrompt('Nombre del estado', 'Ej: En revisión').then(name => {
+            if (!name) return;
+            insertAtEnd(`    ${textToId(name)} : ${name}`);
+          });
+          break;
         case 'state-start': insertAtEnd('    [*] --> NuevoEstado'); break;
         case 'state-end': insertAtEnd('    Estado --> [*]'); break;
-        case 'class-node': {
-          const name = prompt('Nombre de la clase:');
-          if (name?.trim()) insertAtEnd(`    class ${name.trim()} {\n        +campo tipo\n        +metodo() void\n    }`);
+        case 'class-node':
+          quickPrompt('Nombre de la clase', 'Ej: Usuario').then(name => {
+            if (!name) return;
+            insertAtEnd(`    class ${name} {\n        +campo tipo\n        +metodo() void\n    }`);
+          });
           break;
-        }
-        case 'class-interface': {
-          const name = prompt('Nombre de la interfaz:');
-          if (name?.trim()) insertAtEnd(`    class ${name.trim()} {\n        <<interface>>\n        +metodo() void\n    }`);
+        case 'class-interface':
+          quickPrompt('Nombre de la interfaz', 'Ej: IServicio').then(name => {
+            if (!name) return;
+            insertAtEnd(`    class ${name} {\n        <<interface>>\n        +metodo() void\n    }`);
+          });
           break;
-        }
-        case 'er-entity': {
-          const name = prompt('Nombre de la entidad:');
-          if (name?.trim()) insertAtEnd(`    ${name.trim().toUpperCase()} {\n        int id PK\n        string nombre\n    }`);
+        case 'er-entity':
+          quickPrompt('Nombre de la entidad', 'Ej: Producto').then(name => {
+            if (!name) return;
+            insertAtEnd(`    ${name.toUpperCase()} {\n        int id PK\n        string nombre\n    }`);
+          });
           break;
-        }
       }
     }
 
