@@ -2130,6 +2130,8 @@
         previewOutput.innerHTML = svg;
         setupNodeInteraction();
         updateContextToolbar();
+        // Auto-fit diagram to viewport
+        requestAnimationFrame(() => zoomFit());
 
         statusMessage.className = 'success';
         statusMessage.textContent = 'Renderizado correctamente';
