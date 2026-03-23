@@ -2490,6 +2490,33 @@
       });
     }
 
+    function deleteSelectedNode() {
+      if (!selectedNodeId) return;
+      const id = selectedNodeId;
+      const lines = codeEditor.value.split('\n');
+      const escaped = id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      // Remove lines that define or reference this node
+      const filtered = lines.filter(line => {
+        const trimmed = line.trim();
+        // Skip empty lines
+        if (!trimmed) return true;
+        // Remove: node definition (A[text], A(text), A{text})
+        if (new RegExp(`^${escaped}[\\[({]`).test(trimmed)) return false;
+        // Remove: arrows involving this node (A --> B, B --> A, A -->|text| B)
+        if (new RegExp(`(^|\\s)${escaped}\\s*[-=.]`).test(trimmed)) return false;
+        if (new RegExp(`[-=.]+>\\|?[^|]*\\|?\\s*${escaped}(\\s|$)`).test(trimmed)) return false;
+        // Remove: style for this node
+        if (new RegExp(`^style\\s+${escaped}\\s`).test(trimmed)) return false;
+        // Remove: click for this node
+        if (new RegExp(`^click\\s+${escaped}\\s`).test(trimmed)) return false;
+        return true;
+      });
+      codeEditor.value = filtered.join('\n').replace(/\n{3,}/g, '\n\n');
+      selectNode(null);
+      scheduleRender();
+      showToast(`Nodo "${id}" eliminado`);
+    }
+
     function setupNodeInteraction() {
       const nodes = previewOutput.querySelectorAll('.node');
       nodes.forEach(node => {
@@ -2957,6 +2984,16 @@
 
       if (e.key === 'Escape') { closeAllPanels(); return; }
       if (e.key === 'F5') { e.preventDefault(); enterPresentation(); return; }
+
+      // Delete/Backspace: remove selected node (only when not typing in an input)
+      if ((e.key === 'Delete' || e.key === 'Backspace') && selectedNodeId) {
+        const tag = document.activeElement?.tagName;
+        if (tag !== 'TEXTAREA' && tag !== 'INPUT' && !document.activeElement?.isContentEditable) {
+          e.preventDefault();
+          deleteSelectedNode();
+          return;
+        }
+      }
 
       if (ctrl && e.shiftKey && e.key === 'E') { e.preventDefault(); exportSvg(); }
       else if (ctrl && e.shiftKey && e.key === 'P') { e.preventDefault(); exportPng(); }
