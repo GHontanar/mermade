@@ -2271,8 +2271,15 @@
       const svgEl = previewOutput.querySelector('svg');
       if (!svgEl) return;
 
-      // Use screen coordinates and convert to SVG space to handle all transforms
-      const screenRect = nodeG.getBoundingClientRect();
+      // Find the visible shape element (rect, polygon, circle, path, or the whole group)
+      const shape = nodeG.querySelector('rect, polygon, circle, path.basic, .label-container');
+      const target = shape || nodeG;
+
+      const screenRect = target.getBoundingClientRect();
+      // Fallback: if shape has zero size, try the whole group
+      const rect = (screenRect.width > 1 && screenRect.height > 1) ? screenRect : nodeG.getBoundingClientRect();
+      if (rect.width < 1 || rect.height < 1) return;
+
       const svgPoint = (screenX, screenY) => {
         const pt = svgEl.createSVGPoint();
         pt.x = screenX;
@@ -2281,8 +2288,8 @@
         return pt.matrixTransform(ctm);
       };
 
-      const topLeft = svgPoint(screenRect.left, screenRect.top);
-      const bottomRight = svgPoint(screenRect.right, screenRect.bottom);
+      const topLeft = svgPoint(rect.left, rect.top);
+      const bottomRight = svgPoint(rect.right, rect.bottom);
       const cx = (topLeft.x + bottomRight.x) / 2;
       const cy = (topLeft.y + bottomRight.y) / 2;
 
