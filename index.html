@@ -492,26 +492,34 @@
     .wizard-actions button:active { transform: scale(0.97); }
 
     /* === Node Interaction === */
-    #mermaid-output .node { cursor: pointer; }
-    #mermaid-output .node:hover rect,
-    #mermaid-output .node:hover polygon,
-    #mermaid-output .node:hover circle,
-    #mermaid-output .node:hover path {
+    #mermaid-output .node,
+    #mermaid-output .actor,
+    #mermaid-output .entity,
+    #mermaid-output .state-group,
+    #mermaid-output .mindmap-node {
+      cursor: pointer;
+    }
+    #mermaid-output :is(.node, .actor, .entity, .state-group, .mindmap-node):hover rect,
+    #mermaid-output :is(.node, .actor, .entity, .state-group, .mindmap-node):hover polygon,
+    #mermaid-output :is(.node, .actor, .entity, .state-group, .mindmap-node):hover circle,
+    #mermaid-output :is(.node, .actor, .entity, .state-group, .mindmap-node):hover path,
+    #mermaid-output :is(.node, .actor, .entity, .state-group, .mindmap-node):hover line {
       filter: brightness(0.92);
     }
-    #mermaid-output .node.selected rect,
-    #mermaid-output .node.selected polygon,
-    #mermaid-output .node.selected circle,
-    #mermaid-output .node.selected path {
+    #mermaid-output :is(.node, .actor, .entity, .state-group, .mindmap-node).selected rect,
+    #mermaid-output :is(.node, .actor, .entity, .state-group, .mindmap-node).selected polygon,
+    #mermaid-output :is(.node, .actor, .entity, .state-group, .mindmap-node).selected circle,
+    #mermaid-output :is(.node, .actor, .entity, .state-group, .mindmap-node).selected path,
+    #mermaid-output :is(.node, .actor, .entity, .state-group, .mindmap-node).selected line {
       stroke: var(--accent) !important;
       stroke-width: 3px !important;
       stroke-dasharray: 5,3;
     }
     /* Drop target highlight */
-    #mermaid-output .node.drop-target rect,
-    #mermaid-output .node.drop-target polygon,
-    #mermaid-output .node.drop-target circle,
-    #mermaid-output .node.drop-target path {
+    #mermaid-output :is(.node, .actor, .entity, .state-group, .mindmap-node).drop-target rect,
+    #mermaid-output :is(.node, .actor, .entity, .state-group, .mindmap-node).drop-target polygon,
+    #mermaid-output :is(.node, .actor, .entity, .state-group, .mindmap-node).drop-target circle,
+    #mermaid-output :is(.node, .actor, .entity, .state-group, .mindmap-node).drop-target path {
       stroke: var(--success-text) !important;
       stroke-width: 3px !important;
       filter: brightness(1.1);
@@ -2196,14 +2204,74 @@
     const stylePanel = $('#style-panel');
     const inlineEdit = $('#inline-edit');
 
+    // Selectors for interactive elements per diagram type
+    const INTERACTIVE_SELECTORS = {
+      flowchart: '.node',
+      sequence: '.actor',
+      class: '.node',
+      state: '.node, .state-group',
+      er: '.entity',
+      mindmap: '.mindmap-node, .node',
+      _default: '.node',
+    };
+
+    function getInteractiveSelector() {
+      const type = detectDiagramType(codeEditor.value);
+      return INTERACTIVE_SELECTORS[type] || INTERACTIVE_SELECTORS._default;
+    }
+
+    function closestInteractive(el) {
+      if (!el) return null;
+      const selectors = getInteractiveSelector().split(',').map(s => s.trim());
+      for (const s of selectors) {
+        const found = el.closest(s);
+        if (found) return found;
+      }
+      return null;
+    }
+
     function extractNodeId(svgNode) {
-      // Mermaid gives nodes IDs like "flowchart-A-0" or data-id attributes
-      const g = svgNode.closest('.node');
+      // Find the closest interactive group element
+      const selector = getInteractiveSelector();
+      const selectors = selector.split(',').map(s => s.trim());
+      let g = null;
+      for (const s of selectors) {
+        g = svgNode.closest(s);
+        if (g) break;
+      }
       if (!g) return null;
+
       const id = g.id || '';
-      // Try patterns: "flowchart-NODEID-NUM", "NODEID"
-      const match = id.match(/flowchart-(.+?)-\d+$/) || id.match(/^(.+?)(?:-\d+)?$/);
-      return match ? match[1] : null;
+
+      // Flowchart: "flowchart-NODEID-NUM"
+      const flowMatch = id.match(/flowchart-(.+?)-\d+$/);
+      if (flowMatch) return flowMatch[1];
+
+      // State: "state-NODEID-NUM" or "state-NODEID"
+      const stateMatch = id.match(/state-(.+?)(?:-\d+)?$/);
+      if (stateMatch) return stateMatch[1];
+
+      // Sequence: actor elements have text content as identifier
+      if (g.classList.contains('actor')) {
+        const text = g.querySelector('text, .actor-label')?.textContent?.trim();
+        return text || null;
+      }
+
+      // ER: entity name from text
+      if (g.classList.contains('entity')) {
+        const text = g.querySelector('text')?.textContent?.trim();
+        return text || null;
+      }
+
+      // Mindmap: try data-id or text content
+      if (g.classList.contains('mindmap-node')) {
+        const text = g.querySelector('text, .nodeLabel')?.textContent?.trim();
+        return text || null;
+      }
+
+      // Generic: strip trailing -NUM
+      const genericMatch = id.match(/^(.+?)(?:-\d+)?$/);
+      return genericMatch ? genericMatch[1] : null;
     }
 
     function findNodeInCode(nodeId) {
@@ -2241,13 +2309,16 @@
 
     function selectNode(nodeEl) {
       // Deselect previous
-      previewOutput.querySelectorAll('.node.selected').forEach(n => n.classList.remove('selected'));
+      previewOutput.querySelectorAll('.selected').forEach(n => n.classList.remove('selected'));
       removeConnPorts();
       closeStylePanel();
 
       if (!nodeEl) { selectedNodeId = null; return; }
 
-      const g = nodeEl.closest('.node');
+      const selector = getInteractiveSelector();
+      const selectors = selector.split(',').map(s => s.trim());
+      let g = null;
+      for (const s of selectors) { g = nodeEl.closest(s); if (g) break; }
       if (!g) return;
 
       g.classList.add('selected');
@@ -2352,7 +2423,7 @@
 
         // Highlight potential target
         previewOutput.querySelectorAll('.node.drop-target').forEach(n => n.classList.remove('drop-target'));
-        const target = document.elementFromPoint(e.clientX, e.clientY)?.closest('.node');
+        const target = closestInteractive(document.elementFromPoint(e.clientX, e.clientY));
         if (target && extractNodeId(target) !== dragSourceId) {
           target.classList.add('drop-target');
         }
@@ -2364,7 +2435,7 @@
 
         // Check if dropped on a node
         previewOutput.querySelectorAll('.node.drop-target').forEach(n => n.classList.remove('drop-target'));
-        const target = document.elementFromPoint(e.clientX, e.clientY)?.closest('.node');
+        const target = closestInteractive(document.elementFromPoint(e.clientX, e.clientY));
         const targetId = target ? extractNodeId(target) : null;
 
         removeDragLine();
@@ -2391,7 +2462,7 @@
 
     function showStylePanel(nodeEl) {
       if (!selectedNodeId) return;
-      const g = nodeEl.closest('.node');
+      const g = closestInteractive(nodeEl);
       if (!g) return;
 
       // Read current colors from the node
@@ -2445,7 +2516,7 @@
     }
 
     function startInlineEdit(nodeEl) {
-      const g = nodeEl.closest('.node');
+      const g = closestInteractive(nodeEl);
       if (!g) return;
       const nodeId = extractNodeId(nodeEl);
       if (!nodeId) return;
@@ -2518,7 +2589,8 @@
     }
 
     function setupNodeInteraction() {
-      const nodes = previewOutput.querySelectorAll('.node');
+      const selector = getInteractiveSelector();
+      const nodes = previewOutput.querySelectorAll(selector);
       nodes.forEach(node => {
         // Single click: select + show connection ports
         node.addEventListener('click', (e) => {
@@ -2547,14 +2619,14 @@
       // Click on empty preview area: deselect + close menus
       previewViewport.addEventListener('click', (e) => {
         closeCanvasMenu();
-        if (!e.target.closest('.node') && !e.target.closest('.conn-port') && !e.target.closest('#style-panel') && !e.target.closest('#inline-edit')) {
+        if (!closestInteractive(e.target) && !e.target.closest('.conn-port') && !e.target.closest('#style-panel') && !e.target.closest('#inline-edit')) {
           selectNode(null);
         }
       });
 
       // Right-click on empty canvas: show context menu
       previewViewport.addEventListener('contextmenu', (e) => {
-        if (e.target.closest('.node')) return; // nodes have their own context menu
+        if (closestInteractive(e.target)) return; // nodes have their own context menu
         e.preventDefault();
         closeStylePanel();
         showCanvasMenu(e.clientX, e.clientY);
